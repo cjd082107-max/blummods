@@ -1,1 +1,1 @@
-Built-in updates, gift grid with pictures and prices
+All TikTok gifts load by themselves, no need to go live

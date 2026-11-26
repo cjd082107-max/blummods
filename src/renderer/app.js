@@ -69,7 +69,7 @@ function openGiftPicker(selected, onPick) {
 }
 
 function renderGiftsView() {
-  $('#giftsNotice').innerHTML = GIFTS_REAL ? '' : '<div class="notice">This is a short starter list without pictures. Click <b>Load from TikTok</b> (or just Go Live once) to pull every gift with its picture and price. After that the list is saved in the app.</div>';
+  $('#giftsNotice').innerHTML = GIFTS_REAL ? '' : '<div class="notice">This is a short starter list without pictures. BlumMods loads the full list from TikTok by itself when it opens (no need to be live). If it has not appeared, click <b>Load from TikTok</b>.</div>';
   mountGiftGrid($('#giftsMount'), {
     showCounts: true,
     onPick: (g) => openRuleModal(null, { name: `${g.name} = `, trigger: { type: 'gift', giftName: g.name, minDiamonds: 0, likeEvery: 100, command: '!jump' } }),
@@ -575,7 +575,7 @@ $('#refreshGiftsBtn').onclick = async () => {
   const r = await blum.refreshGifts();
   b.disabled = false; b.textContent = '⟳ Load from TikTok';
   if (r.ok) toast(`Loaded ${r.count} gifts from TikTok`, 'var(--green)');
-  else toast(`Couldn't load gifts: ${r.error} It also loads by itself when you Go Live.`, 'var(--red)');
+  else toast(`Couldn't load gifts: ${r.error}`, 'var(--red)');
 };
 $('#tFollowBtn').onclick = () => simulate({ type: 'follow', user: { ...fakeUser(), uniqueId: fakeUser().uniqueId + '_' + uid().slice(0, 4) } });
 $('#tShareBtn').onclick = () => simulate({ type: 'share', user: fakeUser() });

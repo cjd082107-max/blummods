@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -42,8 +42,9 @@ function normalizeGifts(list) {
   const seen = new Set(); const out = [];
   for (const g of Array.isArray(list) ? list : []) {
     const name = String(g?.name || '').trim();
-    if (!name || seen.has(name.toLowerCase())) continue;
-    seen.add(name.toLowerCase());
+    const key = name.toLowerCase() + '|' + (Number(g?.diamond_count ?? g?.diamonds ?? 0) || 0); // same name can exist at several prices
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
     out.push({
       id: g.id, name, diamonds: Number(g.diamond_count ?? g.diamonds ?? 0) || 0,
       image: g.image?.url_list?.[0] || g.icon?.url_list?.[0] || g.image?.url?.[0] || (typeof g.image === 'string' ? g.image : '') || '',
@@ -59,6 +60,20 @@ function setGifts(list) {
   try { fs.writeFileSync(GIFTS_FILE(), JSON.stringify(giftCatalog)); } catch { /* cache is optional */ }
   send('gift-list', giftCatalog);
   return giftCatalog.length;
+}
+
+// TikTok's public gift list: no login, no room and no going live needed.
+const GIFT_LIST_URL = 'https://webcast.tiktok.com/webcast/gift/list/?aid=1988&app_name=tiktok_web&device_platform=web_pc&app_language=en-US&webcast_language=en-US&region=US&priority_region=US';
+async function fetchGiftsDirect() {
+  const res = await net.fetch(GIFT_LIST_URL, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`TikTok answered ${res.status}`);
+  const json = await res.json();
+  const n = setGifts(json?.data?.gifts);
+  if (!n) throw new Error('TikTok sent back an empty gift list');
+  return n;
+}
+function giftsAreStale() {
+  try { return Date.now() - fs.statSync(GIFTS_FILE()).mtimeMs > 7 * 24 * 60 * 60 * 1000; } catch { return true; }
 }
 
 // ---------- window ----------
@@ -372,6 +387,7 @@ function wireIpc() {
   });
   ipcMain.handle('connect', () => connectTikTok());
   ipcMain.handle('refresh-gifts', async () => {
+    try { return { ok: true, count: await fetchGiftsDirect() }; } catch { /* fall back to asking through the live room */ }
     try {
       let c = tt;
       if (!c || !c.roomId) {
@@ -445,5 +461,6 @@ app.whenReady().then(() => {
   createWindow();
   startServer();
   initUpdater();
+  if (!giftCatalog.length || giftsAreStale()) setTimeout(() => fetchGiftsDirect().then((n) => log(`Loaded ${n} gifts from TikTok`)).catch(() => {}), 2500);
 });
 app.on('window-all-closed', () => { keys?.stop(); app.quit(); });

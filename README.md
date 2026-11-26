@@ -13,7 +13,7 @@ BlumMods makes your games react to your TikTok LIVE. Gifts, follows, shares, lik
 
 1. **Games**: click **+ Add game** and pick the game's `.exe` file. A Steam shortcut or `.url` file works too. BlumMods tells you whether the game is Unity and how easy it will be to mod.
 2. **Triggers**: choose what happens. For example, "Rose → press Space" or "every 500 likes → show an alert." Click **Add example triggers** if you want a starting point.
-3. **Gifts**: a grid of every TikTok gift with its picture and coin price. Click **Load from TikTok** (or just Go Live once) to fill it, then click any gift to make a trigger for it. The list is saved, so it's there next time.
+3. **Gifts**: a grid of every TikTok gift with its picture and coin price. It fills itself from TikTok when the app opens, with no need to go live (**Load from TikTok** refreshes it). Click any gift to make a trigger for it. The list is saved, so it's there next time.
 4. **Live & Test**: click the buttons to fake gifts, follows and likes, so you can test everything without going live. Leave "wait 3 seconds" checked, then click into your game.
 5. When you go live on TikTok, type your username at the top and click **Go Live**. If you aren't live yet, it keeps checking every 30 seconds.
 
