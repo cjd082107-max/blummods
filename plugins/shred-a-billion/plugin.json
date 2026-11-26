@@ -1,15 +1,116 @@
 {
   "id": "shred-a-billion",
   "name": "SHRED A BILLION",
-  "exe": ["ShredABillion.exe"],
+  "exe": [
+    "ShredABillion.exe"
+  ],
   "file": "BlumMods.ShredABillion.dll",
   "version": "0.1.0",
   "actions": [
-    { "id": "jail", "label": "Jail the player", "params": [{ "id": "seconds", "label": "seconds", "default": 15, "min": 1, "max": 600 }] },
-    { "id": "unjail", "label": "Free the player from jail", "params": [] },
-    { "id": "add_money", "label": "Add money", "params": [{ "id": "amount", "label": "$", "default": 1000, "min": 1, "max": 1000000000000 }] },
-    { "id": "remove_money", "label": "Remove money", "params": [{ "id": "amount", "label": "$", "default": 1000, "min": 1, "max": 1000000000000 }] },
-    { "id": "money_multiplier", "label": "Money multiplier", "params": [{ "id": "multiplier", "label": "x", "default": 2, "min": 0, "max": 1000, "step": 0.05 }, { "id": "seconds", "label": "seconds", "default": 30, "min": 1, "max": 3600 }] },
-    { "id": "launch", "label": "Launch the player", "params": [{ "id": "power", "label": "power", "default": 1, "min": 0.1, "max": 10, "step": 0.1 }] }
+    {
+      "id": "jail",
+      "label": "Jail the player",
+      "params": [
+        {
+          "id": "seconds",
+          "label": "seconds",
+          "default": 15,
+          "min": 1,
+          "max": 600,
+          "name": "Time"
+        }
+      ],
+      "category": "Player",
+      "icon": "🔒",
+      "desc": "Sends the streamer back to the spawn area and drops a cage around them. They are pulled back if they get out, until the time is up. More jail gifts add more time."
+    },
+    {
+      "id": "unjail",
+      "label": "Free the player from jail",
+      "params": [],
+      "category": "Player",
+      "icon": "🔓",
+      "desc": "Lets the streamer out of jail early and removes the cage."
+    },
+    {
+      "id": "add_money",
+      "label": "Add money",
+      "params": [
+        {
+          "id": "amount",
+          "label": "dollars",
+          "default": 1000,
+          "min": 1,
+          "max": 1000000000000,
+          "name": "Amount",
+          "step": 1000
+        }
+      ],
+      "category": "Money",
+      "icon": "💵",
+      "desc": "Pays the streamer this many dollars straight into their balance."
+    },
+    {
+      "id": "remove_money",
+      "label": "Remove money",
+      "params": [
+        {
+          "id": "amount",
+          "label": "dollars",
+          "default": 1000,
+          "min": 1,
+          "max": 1000000000000,
+          "name": "Amount",
+          "step": 1000
+        }
+      ],
+      "category": "Money",
+      "icon": "💸",
+      "desc": "Takes this many dollars out of the streamer's balance. It stops at zero."
+    },
+    {
+      "id": "money_multiplier",
+      "label": "Money multiplier",
+      "params": [
+        {
+          "id": "multiplier",
+          "label": "x",
+          "default": 2,
+          "min": 0,
+          "max": 1000,
+          "step": 0.05,
+          "name": "Multiplier"
+        },
+        {
+          "id": "seconds",
+          "label": "seconds",
+          "default": 30,
+          "min": 1,
+          "max": 3600,
+          "name": "Time"
+        }
+      ],
+      "category": "Money",
+      "icon": "✖️",
+      "desc": "Multiplies everything the streamer earns for a while. 2 doubles it, 0.05 leaves them with almost nothing."
+    },
+    {
+      "id": "launch",
+      "label": "Launch the player",
+      "params": [
+        {
+          "id": "power",
+          "label": "power",
+          "default": 1,
+          "min": 0.1,
+          "max": 10,
+          "step": 0.1,
+          "name": "Power"
+        }
+      ],
+      "category": "Player",
+      "icon": "🚀",
+      "desc": "Throws the streamer into the air using the game's own launch effect. Needs the game's stream mode running."
+    }
   ]
 }

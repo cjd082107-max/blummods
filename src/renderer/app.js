@@ -111,7 +111,7 @@ function renderGiftsView() {
   $('#giftsNotice').innerHTML = GIFTS_REAL ? '' : '<div class="notice">This is a short starter list without pictures. BlumMods loads the full list from TikTok by itself when it opens (no need to be live). If it has not appeared, click <b>Load from TikTok</b>.</div>';
   mountGiftGrid($('#giftsMount'), {
     showCounts: true,
-    onPick: (g) => openRuleModal(null, { name: `${g.name} = `, trigger: { type: 'gift', giftName: g.name, minDiamonds: 0, likeEvery: 100, command: '!jump' } }),
+    onPick: (g) => openRuleModal(null, { trigger: { type: 'gift', giftName: g.name, minDiamonds: 0, likeEvery: 100, command: '!jump' } }),
   });
 }
 
@@ -352,6 +352,54 @@ function actionText(a) {
   return '?';
 }
 
+// ---------- events a trigger can fire (game actions from the plugin + built-ins) ----------
+const BUILTIN_EVENTS = [
+  { kind: 'key', label: 'Press a key', category: 'Controls', icon: '⌨️', desc: 'Presses a key or mouse button in the game, as if you pressed it yourself. Works in any game, as long as the game window is in front.' },
+  { kind: 'alert', label: 'Show an alert', category: 'Stream', icon: '💬', desc: 'Pops a message up in BlumMods and on your stream overlay. Use {nickname}, {gift}, {coins}, {count}, {comment} or {likes} in the text.' },
+  { kind: 'wait', label: 'Wait', category: 'Timing', icon: '⏱️', desc: 'Pauses before the next step runs.' },
+  { kind: 'mod', label: 'Custom mod command', category: 'Advanced', icon: '🧩', desc: 'Sends a raw command to a game mod. Only needed for mods that are not in the list above.' },
+];
+function eventCatalog(gameId) {
+  return [...gameActions(gameId).map((a) => ({ kind: 'game', action: a.id, label: a.label, category: a.category || 'Game', icon: a.icon || '⚡', desc: a.desc || '', params: a.params || [] })), ...BUILTIN_EVENTS];
+}
+const sameEvent = (ev, a) => ev.kind === a.kind && (ev.kind !== 'game' || ev.action === a.action);
+function eventFor(a, gameId) {
+  return eventCatalog(gameId).find((ev) => sameEvent(ev, a))
+    || (a.kind === 'game' ? { kind: 'game', action: a.action, label: MANIFEST.games.flatMap((e) => e.actions || []).find((x) => x.id === a.action)?.label || a.action || 'Game action', category: 'Game', icon: '⚡', desc: '', params: [] } : BUILTIN_EVENTS.find((b) => b.kind === a.kind))
+    || { kind: a.kind, label: a.kind, category: '', icon: '⚡', desc: '', params: [] };
+}
+function stepSub(a, ev) {
+  switch (a.kind) {
+    case 'game': return (ev.params || []).map((p) => `${Number(a.params?.[p.id] ?? p.default).toLocaleString()} ${p.label}`).join(' · ') || ev.category;
+    case 'key': return `${a.key || '?'}${Number(a.repeat) > 1 ? ' ×' + a.repeat : ''}`;
+    case 'alert': return a.text || '';
+    case 'wait': return `${a.ms || 500} ms`;
+    case 'mod': return a.command || 'no command yet';
+  }
+  return '';
+}
+const coinsText = (n) => `<i class="coin"></i>${Number(n).toLocaleString()} coin${Number(n) === 1 ? '' : 's'}`;
+function whenParts(t) {
+  switch (t.type) {
+    case 'gift': {
+      const g = findGift(t.giftName);
+      if (t.giftName) return { icon: giftImg(g), title: esc(t.giftName), sub: g ? coinsText(g.diamonds) : 'gift' };
+      return { icon: '<span class="gimg ph">🎁</span>', title: 'Any gift', sub: t.minDiamonds ? `worth ${coinsText(t.minDiamonds).replace(' coin', '+ coin')}` : 'every gift counts' };
+    }
+    case 'follow': return { icon: '<span class="gimg ph">➕</span>', title: 'Follow', sub: 'someone follows you' };
+    case 'like': return { icon: '<span class="gimg ph">❤️</span>', title: `${Number(t.likeEvery || 100).toLocaleString()} likes`, sub: 'every time the count is reached' };
+    case 'share': return { icon: '<span class="gimg ph">↗️</span>', title: 'Share', sub: 'someone shares your LIVE' };
+    case 'chat': return { icon: '<span class="gimg ph">💬</span>', title: t.command ? esc(t.command) : 'Any chat message', sub: 'typed in chat' };
+    case 'join': return { icon: '<span class="gimg ph">👋</span>', title: 'Viewer joins', sub: 'someone enters the LIVE' };
+  }
+  return { icon: '<span class="gimg ph">?</span>', title: '?', sub: '' };
+}
+const chipHTML = (icon, title, sub, cls = '') => `<span class="chip2 ${cls}"><span class="c-ic">${icon}</span><span class="c-tx"><b>${title}</b><small>${sub}</small></span></span>`;
+const whenChip = (t, cls = '') => { const w = whenParts(t); return chipHTML(w.icon, w.title, w.sub, cls); };
+function stepChip(a, gameId, cls = '') { const ev = eventFor(a, gameId); return chipHTML(`<span class="gimg ph">${ev.icon}</span>`, esc(ev.label), esc(stepSub(a, ev)), cls); }
+const soundName = (a) => (a.file || '').split(/[\\/]/).pop().replace(/^\d+-/, '') || 'no file yet';
+const soundChip = (a, cls = '') => (a ? chipHTML('<span class="gimg ph">🎵</span>', esc(soundName(a)), `Volume ${a.volume ?? 80}%`, cls) : `<span class="chip2 dashed ${cls}"><span class="c-tx"><b>＋ Add sound</b></span></span>`);
+
 function renderRules() {
   renderScope();
   const scope = $('#ruleScope').value;
@@ -366,25 +414,33 @@ function renderRules() {
     $('#emptyStarter').onclick = () => addStarterRules(scope === '*' ? D.activeGameId : scope || null);
     return;
   }
-  list.innerHTML = '';
+  list.innerHTML = `<div class="rule-head"><span>When viewers</span><span></span><span>This happens</span><span>Sound</span><span>On</span><span>Test</span><span></span><span></span></div>`;
   for (const r of rules) {
     const g = D.games.find((x) => x.id === r.gameId);
+    const steps = (r.actions || []).filter((a) => a.kind !== 'sound');
+    const sound = (r.actions || []).find((a) => a.kind === 'sound');
     const el = document.createElement('div');
-    el.className = 'rule' + (r.enabled ? '' : ' off');
+    el.className = 'rule2' + (r.enabled ? '' : ' off');
+    el.title = `${r.name}${scope === '*' ? ' · ' + (g ? g.name : 'All games') : ''}${r.cooldownSec ? ` · ${r.cooldownSec}s cooldown` : ''}`;
     el.innerHTML = `
+      <button class="cell" data-a="when">${whenChip(r.trigger)}</button>
+      <span class="arrow2">→</span>
+      <button class="cell" data-a="then">${steps.length ? stepChip(steps[0], r.gameId) : '<span class="chip2 dashed"><span class="c-tx"><b>＋ Pick what happens</b></span></span>'}${steps.length > 1 ? `<span class="more">+${steps.length - 1} more</span>` : ''}</button>
+      <button class="cell" data-a="sound">${soundChip(sound)}</button>
       <label class="switch"><input type="checkbox" ${r.enabled ? 'checked' : ''}><span></span></label>
-      <div class="rule-icon">${TRIGGERS[r.trigger.type]?.e || '?'}</div>
-      <div class="rule-main">
-        <div class="rule-name">${esc(r.name)}<span class="scope">${g ? esc(g.name) : 'All games'}</span></div>
-        <div class="rule-desc">${triggerText(r.trigger)}<span class="arrow">→</span>${(r.actions || []).map(actionText).join(', ') || '<i>no actions</i>'}${r.cooldownSec ? ` · ${r.cooldownSec}s cooldown` : ''}</div>
-      </div>
-      <button class="btn small" data-a="test">Test</button>
+      <button class="btn small" data-a="test">▶ Test</button>
       <button class="btn small ghost" data-a="dup" title="Duplicate">⧉</button>
-      <button class="btn small" data-a="edit">Edit</button>`;
+      <button class="btn small ghost" data-a="del" title="Delete">🗑</button>`;
     el.querySelector('input').onchange = (e) => { r.enabled = e.target.checked; persist(); renderRules(); renderActiveGame(); };
-    el.querySelector('[data-a=edit]').onclick = () => openRuleModal(r);
+    el.querySelector('[data-a=when]').onclick = () => openRuleModal(r, null, 'when');
+    el.querySelector('[data-a=then]').onclick = () => openRuleModal(r, null, 0);
+    el.querySelector('[data-a=sound]').onclick = () => openRuleModal(r, null, 'sound');
     el.querySelector('[data-a=test]').onclick = () => testActions(r.name, r.actions);
     el.querySelector('[data-a=dup]').onclick = () => { D.rules.splice(D.rules.indexOf(r) + 1, 0, { ...structuredClone(r), id: uid(), name: r.name + ' (copy)' }); persist(); renderRules(); };
+    el.querySelector('[data-a=del]').onclick = () => {
+      if (!confirm(`Delete the trigger "${r.name}"?`)) return;
+      D.rules = D.rules.filter((x) => x.id !== r.id); persist(); renderRules(); renderGames(); renderActiveGame();
+    };
     list.appendChild(el);
   }
 }
@@ -426,124 +482,183 @@ function defaultAction(kind) {
   }[kind];
 }
 
-function openRuleModal(rule, preset) {
+const TRIGGER_INFO = {
+  gift: { label: 'Gift', desc: 'A viewer sends a gift. Pick one gift, or any gift worth at least a number of coins.' },
+  follow: { label: 'Follow', desc: 'A viewer follows you during the LIVE. Each viewer only counts once per stream.' },
+  like: { label: 'Likes', desc: 'The like count passes a number, again and again (every 500 likes, for example).' },
+  share: { label: 'Share', desc: 'A viewer shares your LIVE.' },
+  chat: { label: 'Chat message', desc: 'A viewer types a word or command in chat.' },
+  join: { label: 'Viewer joins', desc: 'A viewer enters your LIVE. Busy streams fire this a lot, so add a cooldown.' },
+};
+
+// sel: 'when', 'sound' or the number of the step to open on
+function openRuleModal(rule, preset, sel = 'when') {
   const isNew = !rule;
   const r = structuredClone(rule || { ...newRule(), ...(preset || {}) });
-  if (isNew) r.actions = firstActionFor(r.gameId);
+  if (isNew) { r.actions = firstActionFor(r.gameId); r.name = ''; sel = 0; }
+  let steps = (r.actions || []).filter((a) => a.kind !== 'sound');
+  let sound = (r.actions || []).find((a) => a.kind === 'sound') || null;
+  if (typeof sel === 'number' && !steps[sel]) sel = steps.length ? 0 : 'when';
+  const ui = { sel, q: '', filter: 'all' };
+  const t = r.trigger;
   const card = $('#modalCard');
+  card.classList.add('wide');
+  const allActions = () => [...steps, ...(sound ? [sound] : [])];
+  const usedIn = (ev) => D.rules.some((x) => x.id !== r.id && (x.gameId || null) === (r.gameId || null) && (x.actions || []).some((a) => sameEvent(ev, a)));
 
-  const actionFields = (a, i) => {
-    switch (a.kind) {
-      case 'game': {
-        const acts = gameActions(r.gameId);
-        if (!acts.length) return '<span class="lbl">No game actions here yet. Under "Works in", pick a game that has a BlumMods plugin (set up mods on its card first).</span>';
-        let act = acts.find((x) => x.id === a.action);
-        if (!act) { act = acts[0]; a.action = act.id; a.params = defaultParams(act); }
-        return `<select data-ga="${i}" style="min-width:190px">${acts.map((x) => `<option value="${esc(x.id)}" ${x.id === act.id ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select>` +
-          act.params.map((p) => `<input data-gp="${esc(p.id)}" type="number" min="${p.min ?? ''}" max="${p.max ?? ''}" step="${p.step ?? 'any'}" value="${a.params?.[p.id] ?? p.default}" style="width:110px"><span class="lbl">${esc(p.label)}</span>`).join('');
-      }
-      case 'key': return `
-        <input data-f="key" value="${esc(a.key)}" list="keyList" style="width:110px" placeholder="key">
-        <button class="btn small" data-rec="${i}">Record</button>
-        <span class="lbl">hold</span><input data-f="holdMs" type="number" min="20" value="${a.holdMs}" style="width:64px"><span class="lbl">ms</span>
-        <span class="lbl">×</span><input data-f="repeat" type="number" min="1" max="50" value="${a.repeat}" style="width:60px">`;
-      case 'mod': return `
-        <input data-f="command" value="${esc(a.command)}" placeholder="command, e.g. spawn_enemy" style="flex:1;min-width:160px">
-        <input data-f="args" value="${esc(a.args)}" placeholder="extra info, e.g. {nickname}" style="flex:1;min-width:140px">`;
-      case 'alert': return `
-        <input data-f="text" value="${esc(a.text)}" style="flex:1;min-width:200px">
-        <input data-f="color" type="color" value="${esc(a.color)}" style="width:44px;padding:2px;height:34px">
-        <input data-f="seconds" type="number" min="1" value="${a.seconds}" style="width:60px"><span class="lbl">sec</span>`;
-      case 'sound': return `
-        <button class="btn small" data-pick="${i}">${a.file ? 'Change' : 'Choose sound'}</button>
-        <span class="lbl" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((a.file || 'no file').split(/[\\/]/).pop())}</span>
-        <span class="lbl">vol</span><input data-f="volume" type="range" min="0" max="100" value="${a.volume}" style="width:90px;padding:0">`;
-      case 'wait': return `<input data-f="ms" type="number" min="0" value="${a.ms}" style="width:90px"><span class="lbl">ms before the next action</span>`;
-    }
-    return '';
+  const stepper = (attr, value, min, max, step) => `<span class="stepper"><button data-step="-1">−</button><input ${attr} type="number" value="${value}" ${min !== undefined ? `min="${min}"` : ''} ${max !== undefined ? `max="${max}"` : ''} step="${step || 'any'}"><button data-step="1">+</button></span>`;
+
+  const whenPane = () => `
+    <div class="pane-list">${Object.entries(TRIGGERS).map(([k, v]) => `
+      <button class="ev-item ${t.type === k ? 'sel' : ''}" data-t="${k}"><span class="ev-ic">${v.e}</span><span><b>${TRIGGER_INFO[k].label}</b><small>${TRIGGER_INFO[k].desc}</small></span></button>`).join('')}
+    </div>
+    <div class="pane-detail">
+      <div class="detail-head"><span class="big-ic">${TRIGGERS[t.type].e}</span><div><h3>${TRIGGER_INFO[t.type].label}</h3><p class="hint">${TRIGGER_INFO[t.type].desc}</p></div></div>
+      ${t.type === 'gift' ? `
+        <div class="prow"><label>Which gift<small>Empty means any gift</small></label><div class="gift-field">${giftImg(findGift(t.giftName))}<input id="tGiftName" autocomplete="off" value="${esc(t.giftName)}" placeholder="any gift"><button class="btn small" id="tGiftBrowse">Browse</button></div></div>
+        <div class="prow"><label>Worth at least<small>Coins per gift, 0 for no limit</small></label>${stepper('id="tMin"', t.minDiamonds || 0, 0)}</div>
+        <div class="prow"><label>Combos<small>x5 roses fires 5 times (max 20)</small></label><label class="chk"><input type="checkbox" id="tRepeat" ${r.repeatPerGift ? 'checked' : ''}> Fire once for each gift in a combo</label></div>` : ''}
+      ${t.type === 'like' ? `<div class="prow"><label>Every<small>likes</small></label>${stepper('id="tLikes"', t.likeEvery || 100, 1)}</div>` : ''}
+      ${t.type === 'chat' ? `<div class="prow"><label>Chat says<small>Empty means every message</small></label><input id="tCmd" value="${esc(t.command)}" placeholder="!jump"></div>` : ''}
+      <div class="prow"><label>Cooldown<small>Seconds to ignore repeats</small></label>${stepper('id="rCd"', r.cooldownSec || 0, 0)}</div>
+      <div class="prow"><label>Works in</label><select id="rScope">${scopeOptions(r.gameId || '')}</select></div>
+      <div class="prow"><label>Name<small>Optional</small></label><input id="rName" value="${esc(r.name)}" placeholder="named automatically"></div>
+    </div>`;
+
+  const stepDetail = (a, ev) => {
+    let body = '';
+    if (a.kind === 'game') body = (ev.params || []).map((p) => `<div class="prow"><label>${esc(p.name || p.label)}<small>${esc(p.hint || (p.min !== undefined ? `At least ${p.min}` : ''))}</small></label>${stepper(`data-gp="${esc(p.id)}"`, a.params?.[p.id] ?? p.default, p.min, p.max, p.step)}<span class="unit">${esc(p.label)}</span></div>`).join('') || '<p class="hint">Nothing to set for this one.</p>';
+    if (a.kind === 'key') body = `
+      <div class="prow"><label>Key<small>Combos like Ctrl+S work too</small></label><input data-f="key" value="${esc(a.key)}" list="keyList" style="width:150px"><button class="btn small" id="recBtn">Record</button></div>
+      <div class="prow"><label>Hold for</label>${stepper('data-f="holdMs"', a.holdMs, 20)}<span class="unit">ms</span></div>
+      <div class="prow"><label>Press</label>${stepper('data-f="repeat"', a.repeat, 1, 50)}<span class="unit">times</span></div>`;
+    if (a.kind === 'alert') body = `
+      <div class="prow"><label>Message</label><input data-f="text" value="${esc(a.text)}" style="flex:1"></div>
+      <div class="prow"><label>Color</label><input data-f="color" type="color" value="${esc(a.color)}" style="width:54px;padding:2px;height:36px"></div>
+      <div class="prow"><label>Show for</label>${stepper('data-f="seconds"', a.seconds, 1)}<span class="unit">seconds</span></div>`;
+    if (a.kind === 'wait') body = `<div class="prow"><label>Wait</label>${stepper('data-f="ms"', a.ms, 0)}<span class="unit">ms</span></div>`;
+    if (a.kind === 'mod') body = `
+      <div class="prow"><label>Command</label><input data-f="command" value="${esc(a.command)}" placeholder="spawn_enemy" style="flex:1"></div>
+      <div class="prow"><label>Extra info</label><input data-f="args" value="${esc(a.args)}" placeholder="{nickname}" style="flex:1"></div>`;
+    return `
+      <div class="detail-head"><span class="big-ic">${ev.icon}</span><div><h3>${esc(ev.label)}</h3><span class="tag">${esc(ev.category)}</span></div>
+        <div class="detail-btns"><button class="btn small" id="stepTest">▶ Test</button>${steps.length > 1 ? '<button class="btn small ghost" id="stepRemove">Remove step</button>' : ''}</div></div>
+      <p class="ev-desc">${esc(ev.desc)}</p>
+      <div class="pdivider"></div>${body}`;
   };
 
-  const draw = () => {
-    const t = r.trigger;
-    card.innerHTML = `
-      <h2>${isNew ? 'New trigger' : 'Edit trigger'}</h2>
-      <div class="grid2">
-        <div class="field"><label>Name</label><input id="rName" value="${esc(r.name)}" placeholder="e.g. Rose = jump"></div>
-        <div class="field"><label>Works in</label><select id="rScope">${scopeOptions(r.gameId || '')}</select></div>
-      </div>
-      <div class="section-title">When this happens</div>
-      <div class="trigger-types">${Object.entries(TRIGGERS).map(([k, v]) => `<div class="ttype ${t.type === k ? 'sel' : ''}" data-t="${k}"><span class="e">${v.e}</span>${v.label}</div>`).join('')}</div>
-      ${t.type === 'gift' ? `
-        <div class="grid2">
-          <div class="field"><label>Which gift</label><div class="gift-field">${giftImg(findGift(t.giftName))}<input id="tGiftName" autocomplete="off" value="${esc(t.giftName)}" placeholder="leave empty for any gift"><button class="btn small" id="tGiftBrowse">Browse</button></div></div>
-          <div class="field"><label>Only if worth at least (coins per gift)</label><input id="tMin" type="number" min="0" value="${t.minDiamonds || 0}"></div>
+  const stepPane = (i) => {
+    const a = steps[i];
+    const cat = eventCatalog(r.gameId);
+    const q = ui.q.trim().toLowerCase();
+    const counts = { all: cat.length, used: cat.filter(usedIn).length }; counts.unused = counts.all - counts.used;
+    const shown = cat.filter((ev) => (!q || (ev.label + ' ' + ev.desc + ' ' + ev.category).toLowerCase().includes(q)) && (ui.filter === 'all' || (ui.filter === 'used') === usedIn(ev)));
+    const noPlugin = !gameActions(r.gameId).length;
+    return `
+      <div class="pane-list">
+        <input id="evSearch" placeholder="Search ${cat.length} events" value="${esc(ui.q)}" spellcheck="false">
+        <div class="row filt">${[['all', 'All'], ['unused', 'Unused'], ['used', 'Used']].map(([k, l]) => `<button class="chip ${ui.filter === k ? 'sel' : ''}" data-filter="${k}">${l} ${counts[k]}</button>`).join('')}</div>
+        <div class="ev-scroll">${shown.map((ev) => `
+          <button class="ev-item ${sameEvent(ev, a) ? 'sel' : ''}" data-ev="${cat.indexOf(ev)}"><span class="ev-ic">${ev.icon}</span><span><b>${esc(ev.label)}</b><small>${esc(ev.desc)}</small></span>${sameEvent(ev, a) ? '<span class="tick">✓</span>' : ''}</button>`).join('') || '<div class="empty-small">Nothing matches.</div>'}
+          ${noPlugin ? `<div class="notice" style="margin:10px 4px 0">${r.gameId ? 'This game has no BlumMods plugin yet, so only the general events are listed.' : 'Game events show up when "Works in" is set to a game with a BlumMods plugin.'}</div>` : ''}
         </div>
-        <label class="chk"><input type="checkbox" id="tRepeat" ${r.repeatPerGift ? 'checked' : ''}> Run once for each gift in a combo (x5 roses = 5 times, max 20)</label>` : ''}
-      ${t.type === 'like' ? `<div class="field"><label>Every how many likes</label><input id="tLikes" type="number" min="1" value="${t.likeEvery || 100}" class="w-num"></div>` : ''}
-      ${t.type === 'chat' ? `<div class="field"><label>Chat command</label><input id="tCmd" value="${esc(t.command)}" placeholder="!jump  (empty = every message)"><p class="hint">Anything typed after the command is available as <code>{args}</code>.</p></div>` : ''}
-      ${t.type === 'follow' ? '<p class="hint">Fires when someone follows you during the LIVE.</p>' : ''}
-      ${t.type === 'share' ? '<p class="hint">Fires when someone shares your LIVE.</p>' : ''}
-      ${t.type === 'join' ? '<p class="hint">Fires every time a viewer enters. On busy streams this can be a lot — add a cooldown.</p>' : ''}
-      <div class="field" style="margin-top:6px"><label>Cooldown (seconds) <span class="muted">— ignore repeats for this long</span></label><input id="rCd" type="number" min="0" value="${r.cooldownSec || 0}" class="w-num"></div>
-
-      <div class="section-title">Do this <span class="add-actions">${Object.entries(ACTIONS).map(([k, v]) => `<button class="btn small" data-add="${k}">+ ${v}</button>`).join('')}</span></div>
-      <div class="actions">${r.actions.map((a, i) => `
-        <div class="action" data-i="${i}">
-          <span class="num">${i + 1}</span>
-          <select class="kind" data-kind="${i}">${Object.entries(ACTIONS).map(([k, v]) => `<option value="${k}" ${a.kind === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
-          <div class="fields">${actionFields(a, i)}</div>
-          <button class="btn small ghost" data-up="${i}" title="Move up">↑</button>
-          <button class="btn small ghost" data-del="${i}" title="Remove">✕</button>
-        </div>`).join('') || '<div class="empty-small">Add at least one action above.</div>'}
       </div>
-      <p class="hint">Use <code>{nickname}</code> <code>{user}</code> <code>{gift}</code> <code>{count}</code> <code>{coins}</code> <code>{comment}</code> <code>{args}</code> <code>{likes}</code> in text.</p>
+      <div class="pane-detail">${stepDetail(a, eventFor(a, r.gameId))}</div>`;
+  };
+
+  const soundPane = () => `
+    <div class="pane-detail solo">
+      <div class="detail-head"><span class="big-ic">🎵</span><div><h3>Sound</h3><span class="tag">Optional</span></div>
+        <div class="detail-btns">${sound ? '<button class="btn small" id="sndTest">▶ Test</button><button class="btn small ghost" id="sndRemove">Remove sound</button>' : ''}</div></div>
+      <p class="ev-desc">Plays a sound from BlumMods when this trigger fires. Your stream picks it up along with the rest of your PC audio.</p>
+      <div class="pdivider"></div>
+      <div class="prow"><label>File<small>mp3, wav, ogg or m4a</small></label><button class="btn small" id="sndPick">${sound?.file ? 'Change sound' : 'Choose a sound'}</button><span class="unit">${sound ? esc(soundName(sound)) : ''}</span></div>
+      ${sound ? `<div class="prow"><label>Volume</label><input id="sndVol" type="range" min="0" max="100" value="${sound.volume ?? 80}" style="width:220px;padding:0"><span class="unit" id="sndVolTx">${sound.volume ?? 80}%</span></div>` : ''}
+    </div>`;
+
+  const draw = () => {
+    const g = D.games.find((x) => x.id === r.gameId);
+    card.innerHTML = `
+      <div class="ed-top"><span class="ed-title">${isNew ? 'New trigger' : 'Trigger'}</span><span class="muted">${g ? esc(g.name) : 'All games'} · TikTok</span><button class="btn small ghost" id="rClose">Esc ✕</button></div>
+      <div class="flow">
+        <span class="flow-tx">When a viewer</span>
+        <button class="flow-btn" data-sel="when">${whenChip(t, ui.sel === 'when' ? 'on' : '')}</button>
+        <span class="arrow2">→</span>
+        ${steps.map((a, i) => `${i ? '<span class="plus">+</span>' : ''}<button class="flow-btn" data-sel="${i}">${stepChip(a, r.gameId, ui.sel === i ? 'on' : '')}</button>`).join('')}
+        <button class="flow-btn" id="addStep" title="Add another thing that happens"><span class="chip2 dashed small"><span class="c-tx"><b>＋ step</b></span></span></button>
+        <span class="plus">+</span>
+        <button class="flow-btn" data-sel="sound">${soundChip(sound, ui.sel === 'sound' ? 'on' : '')}</button>
+      </div>
+      <div class="panes">${ui.sel === 'when' ? whenPane() : ui.sel === 'sound' ? soundPane() : stepPane(ui.sel)}</div>
       <div class="modal-foot">
-        <div class="row">${isNew ? '' : '<button class="btn danger" id="rDelete">Delete</button>'}<button class="btn" id="rTest">Test it</button></div>
+        <div class="row">${isNew ? '' : '<button class="btn danger" id="rDelete">🗑 Delete</button>'}<button class="btn" id="rTest">▶ Test everything</button></div>
         <div class="row"><button class="btn" id="rCancel">Cancel</button><button class="btn primary" id="rSave">Save trigger</button></div>
       </div>`;
 
-    $('#rName').oninput = (e) => (r.name = e.target.value);
-    $('#rScope').onchange = (e) => { r.gameId = e.target.value || null; draw(); };
-    $('#rCd').oninput = (e) => (r.cooldownSec = Number(e.target.value) || 0);
-    $$('.ttype', card).forEach((el) => (el.onclick = () => { t.type = el.dataset.t; draw(); }));
-    if ($('#tGiftName')) {
-      $('#tGiftName').oninput = (e) => (t.giftName = e.target.value);
-      attachGiftCombo($('#tGiftName'), (g) => { t.giftName = g.name; draw(); });
-      $('#tGiftBrowse').onclick = () => openGiftPicker(t.giftName, (g) => { t.giftName = g ? g.name : ''; draw(); });
-      $('#tMin').oninput = (e) => (t.minDiamonds = Number(e.target.value) || 0);
-      $('#tRepeat').onchange = (e) => (r.repeatPerGift = e.target.checked);
-    }
-    if ($('#tLikes')) $('#tLikes').oninput = (e) => (t.likeEvery = Number(e.target.value) || 100);
-    if ($('#tCmd')) $('#tCmd').oninput = (e) => (t.command = e.target.value);
-
-    $$('[data-add]', card).forEach((b) => (b.onclick = () => { r.actions.push(defaultAction(b.dataset.add)); draw(); }));
-    $$('[data-del]', card).forEach((b) => (b.onclick = () => { r.actions.splice(Number(b.dataset.del), 1); draw(); }));
-    $$('[data-up]', card).forEach((b) => (b.onclick = () => { const i = Number(b.dataset.up); if (i > 0) { [r.actions[i - 1], r.actions[i]] = [r.actions[i], r.actions[i - 1]]; draw(); } }));
-    $$('[data-kind]', card).forEach((s) => (s.onchange = () => { r.actions[Number(s.dataset.kind)] = defaultAction(s.value); draw(); }));
-    $$('.action', card).forEach((row) => {
-      const a = r.actions[Number(row.dataset.i)];
-      $$('[data-f]', row).forEach((inp) => (inp.oninput = () => {
-        a[inp.dataset.f] = inp.type === 'number' || inp.type === 'range' ? Number(inp.value) : inp.value;
+    // shared wiring
+    $$('[data-sel]', card).forEach((b) => (b.onclick = () => { const v = b.dataset.sel; ui.sel = v === 'when' || v === 'sound' ? v : Number(v); ui.q = ''; draw(); }));
+    $('#addStep').onclick = () => { steps.push(firstActionFor(r.gameId)[0]); ui.sel = steps.length - 1; ui.q = ''; draw(); };
+    $$('.stepper', card).forEach((s) => {
+      const inp = $('input', s);
+      $$('button', s).forEach((b) => (b.onclick = () => {
+        const step = Number(inp.step) > 0 ? Number(inp.step) : 1;
+        let v = Math.round(((Number(inp.value) || 0) + step * Number(b.dataset.step)) * 1000) / 1000;
+        if (inp.min !== '' && v < Number(inp.min)) v = Number(inp.min);
+        if (inp.max !== '' && v > Number(inp.max)) v = Number(inp.max);
+        inp.value = v; inp.dispatchEvent(new Event('input'));
       }));
     });
-    $$('[data-ga]', card).forEach((s) => (s.onchange = () => {
-      const a = r.actions[Number(s.dataset.ga)]; a.action = s.value; a.params = defaultParams(gameActions(r.gameId).find((x) => x.id === s.value)); draw();
-    }));
-    $$('.action', card).forEach((row) => {
-      const a = r.actions[Number(row.dataset.i)];
-      $$('[data-gp]', row).forEach((inp) => (inp.oninput = () => { a.params = a.params || {}; a.params[inp.dataset.gp] = Number(inp.value); }));
-    });
-    $$('[data-pick]', card).forEach((b) => (b.onclick = async () => { const f = await blum.pickSound(); if (f) { r.actions[Number(b.dataset.pick)].file = f; draw(); } }));
-    $$('[data-rec]', card).forEach((b) => (b.onclick = () => recordKey(b, (k) => { r.actions[Number(b.dataset.rec)].key = k; draw(); })));
-
+    $('#rClose').onclick = closeModal;
     $('#rCancel').onclick = closeModal;
-    $('#rTest').onclick = () => testActions(r.name || 'Test', r.actions);
+    $('#rTest').onclick = () => testActions(r.name || 'Test', allActions());
+
+    if (ui.sel === 'when') {
+      $$('[data-t]', card).forEach((el) => (el.onclick = () => { t.type = el.dataset.t; draw(); }));
+      $('#rName').oninput = (e) => (r.name = e.target.value);
+      $('#rScope').onchange = (e) => { r.gameId = e.target.value || null; draw(); };
+      $('#rCd').oninput = (e) => (r.cooldownSec = Math.max(0, Number(e.target.value) || 0));
+      if ($('#tGiftName')) {
+        $('#tGiftName').oninput = (e) => (t.giftName = e.target.value);
+        attachGiftCombo($('#tGiftName'), (gift) => { t.giftName = gift.name; draw(); });
+        $('#tGiftBrowse').onclick = () => openGiftPicker(t.giftName, (gift) => { t.giftName = gift ? gift.name : ''; draw(); });
+        $('#tMin').oninput = (e) => (t.minDiamonds = Math.max(0, Number(e.target.value) || 0));
+        $('#tRepeat').onchange = (e) => (r.repeatPerGift = e.target.checked);
+      }
+      if ($('#tLikes')) $('#tLikes').oninput = (e) => (t.likeEvery = Math.max(1, Number(e.target.value) || 100));
+      if ($('#tCmd')) $('#tCmd').oninput = (e) => (t.command = e.target.value);
+    } else if (ui.sel === 'sound') {
+      $('#sndPick').onclick = async () => { const f = await blum.pickSound(); if (f) { sound = { kind: 'sound', file: f, volume: sound?.volume ?? 80 }; draw(); } };
+      if ($('#sndVol')) $('#sndVol').oninput = (e) => { sound.volume = Number(e.target.value); $('#sndVolTx').textContent = sound.volume + '%'; };
+      if ($('#sndTest')) $('#sndTest').onclick = () => blum.testActions({ name: 'Sound', actions: [sound] });
+      if ($('#sndRemove')) $('#sndRemove').onclick = () => { sound = null; draw(); };
+    } else {
+      const a = steps[ui.sel];
+      const cat = eventCatalog(r.gameId);
+      const search = $('#evSearch');
+      search.oninput = () => { ui.q = search.value; const pos = search.selectionStart; draw(); const s2 = $('#evSearch'); s2.focus(); s2.setSelectionRange(pos, pos); };
+      $$('[data-filter]', card).forEach((b) => (b.onclick = () => { ui.filter = b.dataset.filter; draw(); }));
+      $$('[data-ev]', card).forEach((b) => (b.onclick = () => {
+        const ev = cat[Number(b.dataset.ev)];
+        if (!sameEvent(ev, a)) steps[ui.sel] = ev.kind === 'game' ? { kind: 'game', action: ev.action, params: defaultParams(ev) } : defaultAction(ev.kind);
+        draw();
+      }));
+      $$('[data-gp]', card).forEach((inp) => (inp.oninput = () => { a.params = a.params || {}; a.params[inp.dataset.gp] = Number(inp.value); refreshChips(); }));
+      $$('.pane-detail [data-f]', card).forEach((inp) => (inp.oninput = () => { a[inp.dataset.f] = inp.type === 'number' ? Number(inp.value) : inp.value; refreshChips(); }));
+      if ($('#recBtn')) $('#recBtn').onclick = () => recordKey($('#recBtn'), (k) => { a.key = k; draw(); });
+      $('#stepTest').onclick = () => testActions(r.name || 'Test', [a]);
+      if ($('#stepRemove')) $('#stepRemove').onclick = () => { steps.splice(ui.sel, 1); ui.sel = Math.max(0, ui.sel - 1); draw(); };
+    }
+
     $('#rSave').onclick = () => {
-      if (!r.actions.length) return toast('Add at least one action', 'var(--red)');
-      if (r.actions.some((a) => a.kind === 'game' && !a.action)) return toast('One game action has nothing picked. Choose a game under "Works in" first.', 'var(--red)');
-      const bad = r.actions.find((a) => a.kind === 'key' && !a.key);
-      if (bad) return toast('One of your key actions has no key', 'var(--red)');
-      if (!r.name.trim()) r.name = `${TRIGGERS[t.type].label}${t.type === 'gift' && t.giftName ? ': ' + t.giftName : ''}`;
+      if (!steps.length && !sound) return toast('Pick at least one thing that happens', 'var(--red)');
+      if (steps.some((a) => a.kind === 'key' && !a.key)) return toast('One of your key steps has no key', 'var(--red)');
+      if (steps.some((a) => a.kind === 'mod' && !String(a.command || '').trim())) return toast('The custom mod command is empty', 'var(--red)');
+      if (sound && !sound.file) sound = null;
+      r.actions = allActions();
+      if (!r.name.trim()) {
+        const w = whenParts(t).title.replace(/<[^>]+>/g, '');
+        r.name = `${w} → ${steps.length ? eventFor(steps[0], r.gameId).label : 'sound'}`;
+      }
       if (isNew) { r.id = uid(); D.rules.push(r); }
       else D.rules[D.rules.findIndex((x) => x.id === rule.id)] = r;
       persist(); closeModal(); renderRules(); renderGames(); renderActiveGame();
@@ -555,6 +670,11 @@ function openRuleModal(rule, preset) {
       persist(); closeModal(); renderRules(); renderGames(); renderActiveGame();
     };
   };
+  // update the chips in the flow bar without redrawing (keeps the cursor in the box being typed in)
+  const refreshChips = () => $$('.flow [data-sel]', card).forEach((b) => {
+    const v = b.dataset.sel;
+    if (v !== 'when' && v !== 'sound' && steps[Number(v)]) b.innerHTML = stepChip(steps[Number(v)], r.gameId, ui.sel === Number(v) ? 'on' : '');
+  });
   draw();
   openModal();
 }
@@ -593,7 +713,7 @@ async function testActions(name, actions) {
 
 // ---------- modal ----------
 function openModal() { $('#modal').classList.remove('hidden'); }
-function closeModal() { $('#modal').classList.add('hidden'); $('#modalCard').innerHTML = ''; }
+function closeModal() { $('#modal').classList.add('hidden'); $('#modalCard').innerHTML = ''; $('#modalCard').classList.remove('wide'); closeGiftCombo(); }
 $('#modal').addEventListener('mousedown', (e) => { if (e.target.id === 'modal') closeModal(); });
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || $('.recording')) return;
