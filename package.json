@@ -1,0 +1,27 @@
+{
+  "name": "blummods",
+  "productName": "BlumMods",
+  "version": "1.2.0",
+  "description": "Make your games react to your TikTok LIVE",
+  "main": "src/main.js",
+  "author": "Carter",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/rules.test.js && node test/updater.test.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.1",
+    "tiktok-live-connector": "^2.5.0",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.5.0",
+    "resedit": "^3.1.1"
+  },
+  "blummods": {
+    "updateRepo": "cjd082107-max/blummods"
+  }
+}

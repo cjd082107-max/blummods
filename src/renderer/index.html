@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data: https:; media-src file: data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>BlumMods</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="updateBar" class="update-bar">
+  <span class="up-ic">⬆</span>
+  <div class="up-text"><b id="upTitle"></b><span id="upSub"></span></div>
+  <div class="up-prog"><i id="upFill"></i></div>
+  <button class="btn small up-go" id="upGo">Update now</button>
+  <button class="btn small ghost" id="upLater">Later</button>
+</div>
+<header class="topbar">
+  <div class="brand"><img src="../../build/icon.png" alt=""><span>Blum<b>Mods</b></span></div>
+  <div class="conn">
+    <span class="at">@</span>
+    <input id="username" placeholder="your TikTok username" spellcheck="false">
+    <button id="connectBtn" class="btn primary">Go Live</button>
+    <span id="statusPill" class="pill offline"><i></i><span id="statusText">Not connected</span></span>
+  </div>
+  <div class="tb-space"></div>
+</header>
+
+<div class="shell">
+  <nav class="side">
+    <button class="nav active" data-view="games"><svg viewBox="0 0 24 24"><path d="M6 9h4M8 7v4M15 10h.01M18 12h.01"/><rect x="2" y="5" width="20" height="14" rx="5"/></svg>Games</button>
+    <button class="nav" data-view="rules"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>Triggers</button>
+    <button class="nav" data-view="gifts"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.500-5a2.500 2.500 0 0 1 0 5"/></svg>Gifts</button>
+    <button class="nav" data-view="live"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4"/></svg>Live &amp; Test</button>
+    <button class="nav" data-view="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
+
+    <div class="side-sep"></div>
+    <div class="side-label">Active game</div>
+    <div id="activeGame" class="active-game"></div>
+
+    <div class="side-label">This stream</div>
+    <div class="stats">
+      <div><b id="sGifts">0</b><span>gifts</span></div>
+      <div><b id="sDiamonds">0</b><span>diamonds</span></div>
+      <div><b id="sLikes">0</b><span>likes</span></div>
+      <div><b id="sFollows">0</b><span>follows</span></div>
+    </div>
+    <div class="side-foot">
+      <span id="modsInfo" class="mods-info">0 mods connected</span>
+      <span id="queueInfo" class="queue-info"></span>
+    </div>
+  </nav>
+
+  <main>
+    <!-- GAMES -->
+    <section class="view active" id="view-games">
+      <div class="view-head">
+        <div><h1>Game Library</h1><p class="sub">Your games, ready to launch. The game you launch becomes the active one and its triggers turn on.</p></div>
+        <button class="btn primary" id="addGameBtn">+ Add game</button>
+      </div>
+      <div id="gameGrid" class="game-grid"></div>
+    </section>
+
+    <!-- RULES -->
+    <section class="view" id="view-rules">
+      <div class="view-head">
+        <div><h1>Triggers</h1><p class="sub">When something happens on your LIVE, do something in your game.</p></div>
+        <div class="row">
+          <select id="ruleScope"></select>
+          <button class="btn primary" id="addRuleBtn">+ New trigger</button>
+        </div>
+      </div>
+      <div id="ruleList" class="rule-list"></div>
+    </section>
+
+    <!-- GIFTS -->
+    <section class="view" id="view-gifts">
+      <div class="view-head">
+        <div><h1>Gifts</h1><p class="sub" id="giftsSub">Every gift from TikTok. Click one to make a trigger for it.</p></div>
+        <button class="btn" id="refreshGiftsBtn">⟳ Load from TikTok</button>
+      </div>
+      <div id="giftsNotice"></div>
+      <div id="giftsMount"></div>
+    </section>
+
+    <!-- LIVE -->
+    <section class="view" id="view-live">
+      <div class="view-head">
+        <div><h1>Live &amp; Test</h1><p class="sub">Watch events come in, or fake them to test your setup without going live.</p></div>
+        <div class="row">
+          <button class="btn" id="resetSessionBtn">Reset counters</button>
+          <button class="btn danger" id="clearQueueBtn">Stop queued actions</button>
+        </div>
+      </div>
+      <div class="live-grid">
+        <div class="panel feed-panel">
+          <div class="panel-head"><h3>Event feed</h3><label class="chk"><input type="checkbox" id="showLikes"> show likes &amp; joins</label></div>
+          <div id="feed" class="feed"><div class="empty-small">Nothing yet. Go live or use the test buttons →</div></div>
+        </div>
+        <div class="panel test-panel">
+          <h3>Fake an event</h3>
+          <div class="test-block">
+            <label>Gift</label>
+            <div class="row">
+              <input id="tGift" list="giftList" value="Rose" placeholder="gift name">
+              <button class="btn" id="tGiftPick" title="Browse gifts">🎁</button>
+              <input id="tGiftCount" type="number" min="1" value="1" class="w-num" title="how many in the combo">
+              <button class="btn primary" id="tGiftBtn">Send gift</button>
+            </div>
+          </div>
+          <div class="test-grid">
+            <button class="btn" id="tFollowBtn">➕ Follow</button>
+            <button class="btn" id="tShareBtn">↗ Share</button>
+            <button class="btn" id="tLike10Btn">❤ +10 likes</button>
+            <button class="btn" id="tLike100Btn">❤ +100 likes</button>
+            <button class="btn" id="tJoinBtn">👋 Join</button>
+          </div>
+          <div class="test-block">
+            <label>Chat message</label>
+            <div class="row"><input id="tChat" placeholder="!jump"><button class="btn" id="tChatBtn">Send</button></div>
+          </div>
+          <div class="test-block">
+            <label>Fake viewer name</label>
+            <input id="tUser" value="test_viewer">
+          </div>
+          <p class="hint">Key-press actions go to whatever window is focused — click into your game within a few seconds after testing.</p>
+          <div class="row"><label class="chk"><input type="checkbox" id="tDelay" checked> wait 3 seconds before firing (so you can click into the game)</label></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="view-head"><div><h1>Settings</h1></div></div>
+      <div class="settings">
+        <div class="panel">
+          <h3>TikTok</h3>
+          <div class="field"><label>Your TikTok username</label><input id="setUsername" placeholder="without the @"></div>
+          <div class="field"><label>Euler Stream API key <span class="muted">(optional)</span></label><input id="setSignKey" type="password" placeholder="leave empty to use the free tier">
+            <p class="hint">BlumMods reads your LIVE through a free signing service. If connecting gets rate-limited, a free key from eulerstream.com fixes it. <a href="#" data-url="https://www.eulerstream.com">Get a key</a></p></div>
+          <label class="chk"><input type="checkbox" id="setAutoReconnect"> Keep trying until I'm live, and reconnect if it drops</label>
+          <label class="chk"><input type="checkbox" id="setDedupe"> Only count each follower once per stream (stops follow/unfollow spam)</label>
+        </div>
+        <div class="panel">
+          <h3>Game controls</h3>
+          <div class="field"><label>Gap between key presses (ms)</label><input id="setKeyGap" type="number" min="0" class="w-num"></div>
+          <div class="field"><label>Mod server port</label><input id="setPort" type="number" class="w-num">
+            <p class="hint">Game mods connect to <code id="modUrl"></code></p></div>
+          <div class="field"><label>Stream alert overlay</label>
+            <div class="row"><code id="overlayUrl" class="grow"></code><button class="btn" id="copyOverlay">Copy</button></div>
+            <p class="hint">Add this link as a Link/Browser source in TikTok LIVE Studio or OBS to show alerts on stream.</p></div>
+        </div>
+        <div class="panel">
+          <h3>Your data</h3>
+          <div class="row wrap">
+            <button class="btn" id="exportBtn">Back up setup</button>
+            <button class="btn" id="importBtn">Restore backup</button>
+            <button class="btn" id="dataFolderBtn">Open data folder</button>
+            <button class="btn" id="checkUpdateBtn">Check for updates</button>
+          </div>
+          <p class="hint" id="versionInfo"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- modal -->
+<div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
+<div id="picker" class="modal hidden"><div class="modal-card picker-card">
+  <div class="picker-head"><h2>Pick a gift</h2><div class="row"><button class="btn small" id="pickAny">Any gift</button><button class="btn small ghost" id="pickClose">✕</button></div></div>
+  <div id="pickerMount"></div>
+</div></div>
+<div id="toasts" class="toasts"></div>
+<datalist id="giftList"></datalist>
+<datalist id="keyList"></datalist>
+<script src="app.js"></script>
+</body>
+</html>

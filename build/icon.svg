@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#25f4ee"/><stop offset=".5" stop-color="#8a5cff"/><stop offset="1" stop-color="#fe2c55"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="116" fill="#0f0f18"/>
+  <rect x="16" y="16" width="480" height="480" rx="116" fill="none" stroke="url(#g)" stroke-width="22"/>
+  <!-- controller -->
+  <path d="M150 190h212c50 0 82 42 92 96l12 64c7 38-30 60-58 34l-46-44H150l-46 44c-28 26-65 4-58-34l12-64c10-54 42-96 92-96z" fill="url(#g)"/>
+  <rect x="146" y="252" width="66" height="22" rx="8" fill="#0f0f18"/>
+  <rect x="168" y="230" width="22" height="66" rx="8" fill="#0f0f18"/>
+  <!-- bolt -->
+  <path d="M352 222l-44 58h34l-14 46 48-62h-34z" fill="#0f0f18"/>
+</svg>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>BlumMods Overlay</title>
+<style>
+  html,body{margin:0;background:transparent;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif}
+  #stack{position:fixed;top:40px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:12px}
+  .a{padding:16px 28px;border-radius:16px;background:rgba(11,11,18,.88);color:#fff;font-size:34px;font-weight:800;
+     border:3px solid var(--c);box-shadow:0 0 30px var(--c);text-shadow:0 2px 6px #000;animation:in .45s cubic-bezier(.2,1.6,.4,1)}
+  .a.out{animation:out .35s ease-in forwards}
+  @keyframes in{from{transform:scale(.4) translateY(-40px);opacity:0}to{transform:none;opacity:1}}
+  @keyframes out{to{transform:translateY(-30px);opacity:0}}
+</style></head>
+<body><div id="stack"></div>
+<script>
+  const stack = document.getElementById('stack');
+  function show(a){
+    const el = document.createElement('div');
+    el.className = 'a'; el.textContent = a.text; el.style.setProperty('--c', a.color || '#25f4ee');
+    stack.appendChild(el);
+    setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(), 400); }, (a.seconds||4)*1000);
+  }
+  function connect(){
+    const ws = new WebSocket(`ws://${location.host}/overlay`);
+    ws.onmessage = (m)=>{ try{ const a = JSON.parse(m.data); if(a.type==='alert') show(a); }catch{} };
+    ws.onclose = ()=> setTimeout(connect, 2000);
+  }
+  connect();
+</script></body></html>
