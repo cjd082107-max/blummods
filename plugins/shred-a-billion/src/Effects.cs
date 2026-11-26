@@ -180,8 +180,8 @@ namespace BlumMods.ShredABillion
             if (_barMat != null && _trimMat != null) return;
             try
             {
-                _barMat = Candy(C(1.00f, 0.38f, 0.72f));   // bubblegum pink
-                _trimMat = Candy(C(0.56f, 0.42f, 1.00f));  // grape purple
+                _barMat = Candy(C(0.62f, 0.64f, 0.68f));   // light steel grey
+                _trimMat = Candy(C(0.30f, 0.31f, 0.35f));  // dark slate grey
             }
             catch (Exception e) { _barMat = null; _trimMat = null; Fail("cell colors", e); }
         }
@@ -196,7 +196,7 @@ namespace BlumMods.ShredABillion
             }
             if (m == null) return null; // keep Unity's default look rather than guess
             foreach (var prop in new[] { "_BaseColor", "_Color" }) if (m.HasProperty(prop)) m.SetColor(prop, color);
-            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.85f);
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.55f);
             if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f);
             return m;
         }

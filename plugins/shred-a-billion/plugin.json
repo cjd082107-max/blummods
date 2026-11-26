@@ -5,7 +5,7 @@
     "ShredABillion.exe"
   ],
   "file": "BlumMods.ShredABillion.dll",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "actions": [
     {
       "id": "jail",
