@@ -570,6 +570,12 @@ blum.on('mods', (list) => {
   el.textContent = list.length ? `🟢 ${list.map((m) => m.game).join(', ')}` : '0 mods connected';
   el.classList.toggle('on', list.length > 0);
 });
+function showFeed(f) {
+  const el = $('#feedInfo');
+  el.textContent = !f.on ? '' : f.clients ? `🟢 ${f.clients} game${f.clients === 1 ? '' : 's'} on the game feed` : `Game feed ready (port ${f.port})`;
+  el.classList.toggle('on', f.on && f.clients > 0);
+}
+blum.on('feed', showFeed);
 blum.on('queue', (n) => ($('#queueInfo').textContent = n ? `${n} action${n === 1 ? '' : 's'} queued` : ''));
 blum.on('alert', (a) => toast(a.text, a.color));
 blum.on('play-sound', ({ url, volume }) => { const au = new Audio(url); au.volume = Math.max(0, Math.min(1, volume)); au.play().catch(() => {}); });
@@ -639,6 +645,8 @@ function renderSettings() {
   $('#setDedupe').checked = !!s.dedupeFollows;
   $('#setKeyGap').value = s.keyGapMs;
   $('#setPort').value = s.port;
+  $('#setFeedOn').checked = !!s.feedOn;
+  $('#setFeedPort').value = s.feedPort;
   $('#modUrl').textContent = `ws://127.0.0.1:${s.port}/mods`;
   $('#overlayUrl').textContent = `http://127.0.0.1:${s.port}/overlay`;
 }
@@ -648,6 +656,8 @@ bindSetting('#setSignKey', 'signApiKey', (v) => v.trim());
 bindSetting('#setAutoReconnect', 'autoReconnect', Boolean, 'checked');
 bindSetting('#setDedupe', 'dedupeFollows', Boolean, 'checked');
 bindSetting('#setKeyGap', 'keyGapMs', (v) => Math.max(0, Number(v) || 0));
+bindSetting('#setFeedOn', 'feedOn', Boolean, 'checked');
+bindSetting('#setFeedPort', 'feedPort', (v) => Math.min(65535, Math.max(1024, Number(v) || 21213)));
 bindSetting('#setPort', 'port', (v) => Math.min(65535, Math.max(1024, Number(v) || 21777)));
 $('#copyOverlay').onclick = () => { navigator.clipboard.writeText($('#overlayUrl').textContent); toast('Overlay link copied'); };
 $('#exportBtn').onclick = async () => { if (await blum.exportData()) toast('Backup saved'); };
@@ -697,6 +707,7 @@ function renderAll() { renderGames(); renderActiveGame(); renderSettings(); if (
   renderGiftList();
   renderAll();
   setStatus(init.status);
+  showFeed(init.feed);
   if (init.update?.state && init.update.state !== 'idle') showUpdate(init.update);
   if (init.mods.length) $('#modsInfo').textContent = `🟢 ${init.mods.map((m) => m.game).join(', ')}`;
 })();

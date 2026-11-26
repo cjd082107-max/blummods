@@ -45,6 +45,7 @@
       <div><b id="sFollows">0</b><span>follows</span></div>
     </div>
     <div class="side-foot">
+      <span id="feedInfo" class="mods-info"></span>
       <span id="modsInfo" class="mods-info">0 mods connected</span>
       <span id="queueInfo" class="queue-info"></span>
     </div>
@@ -145,6 +146,10 @@
           <div class="field"><label>Gap between key presses (ms)</label><input id="setKeyGap" type="number" min="0" class="w-num"></div>
           <div class="field"><label>Mod server port</label><input id="setPort" type="number" class="w-num">
             <p class="hint">Game mods connect to <code id="modUrl"></code></p></div>
+          <div class="field"><label>Game feed <span class="muted">(for games with built-in TikFinity support)</span></label>
+            <label class="chk"><input type="checkbox" id="setFeedOn"> Send my LIVE events to games the way TikFinity does</label>
+            <div class="row"><span class="muted">Port</span><input id="setFeedPort" type="number" class="w-num"></div>
+            <p class="hint">Some games (like SHRED A BILLION) can connect to TikFinity by themselves. With this on, they connect to BlumMods instead, so TikFinity must be closed. Leave the port at 21213 unless a game says otherwise.</p></div>
           <div class="field"><label>Stream alert overlay</label>
             <div class="row"><code id="overlayUrl" class="grow"></code><button class="btn" id="copyOverlay">Copy</button></div>
             <p class="hint">Add this link as a Link/Browser source in TikTok LIVE Studio or OBS to show alerts on stream.</p></div>

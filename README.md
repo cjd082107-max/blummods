@@ -19,6 +19,10 @@ BlumMods makes your games react to your TikTok LIVE. Gifts, follows, shares, lik
 
 The game you launch from BlumMods becomes the **active game**, and its triggers switch on. Triggers set to "All games" always run.
 
+## Games that already support TikFinity
+
+Some games have TikTok LIVE support built in and look for TikFinity on your PC. BlumMods can stand in for TikFinity: keep **Settings → Game feed** on, close TikFinity, and press the game's own connect button. The game then gets your gifts, likes, follows, shares and chat straight from BlumMods, including the fake ones from **Live & Test**. SHRED A BILLION works this way (in the game: CONNECT, then set up its GIFT TABLE).
+
 ## Updates
 
 BlumMods checks for a new version when it opens. If there is one, a banner drops down from the top: click **Update now** and it downloads, installs and restarts. Your games and triggers are kept. You can also check by hand in **Settings → Check for updates**. Keep the BlumMods folder somewhere normal like `C:\BlumMods` (not Program Files), so the app is allowed to update itself.

@@ -28,6 +28,7 @@ app.on('browser-window-created', (_e, win) => {
     const WebSocket = require('ws'); const mod = new WebSocket('ws://127.0.0.1:21777/mods');
     mod.on('open', () => mod.send(JSON.stringify({ type: 'hello', game: 'Lethal Company' })));
     mod.on('message', (m) => console.log('MOD GOT', m.toString()));
+    const game = new WebSocket('ws://127.0.0.1:21213/'); game.on('message', (m) => { const j = JSON.parse(m.toString()); console.log('FEED GOT', j.event, j.data.giftName || j.data.comment || j.data.likeCount || ''); });
     await shot('1-games');
     await js(`document.querySelector('[data-view=rules]').click(); document.getElementById('emptyStarter').click();`);
     await shot('2-rules');

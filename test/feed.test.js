@@ -1,0 +1,11 @@
+const assert = require('assert'); const { toTikFinity } = require('../src/feed');
+const u = { uniqueId: 'bob', nickname: 'Bob', avatar: 'https://x/y.png' };
+const g = toTikFinity({ type: 'gift', user: u, gift: { id: 5655, name: 'Rose', diamonds: 1, count: 5, image: 'https://x/rose.png' } });
+assert.equal(g.event, 'gift'); assert.deepEqual([g.data.giftName, g.data.diamondCount, g.data.repeatCount, g.data.repeatEnd, g.data.uniqueId, g.data.nickname], ['Rose', 1, 5, true, 'bob', 'Bob']);
+assert.match(g.data.userId, /^\d{19}$/); assert.equal(g.data.userId, toTikFinity({ type: 'follow', user: u }).data.userId);
+assert.deepEqual(Object.values(toTikFinity({ type: 'like', user: u, likeCount: 15, totalLikes: 300 }).data).slice(-2), [15, 300]);
+assert.equal(toTikFinity({ type: 'chat', user: u, comment: '!jump' }).data.comment, '!jump');
+assert.deepEqual(['follow', 'share', 'join'].map((t) => toTikFinity({ type: t, user: u }).event), ['follow', 'share', 'member']);
+assert.equal(toTikFinity({ type: 'nope' }), null);
+JSON.stringify(g);
+console.log('all feed tests passed');

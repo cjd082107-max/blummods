@@ -8,6 +8,7 @@ const { WebSocketServer } = require('ws');
 const { RuleEngine, fillTemplate } = require('./rules');
 const { KeySender, KEY_CHOICES } = require('./keys');
 const { Updater } = require('./updater');
+const { toTikFinity } = require('./feed');
 
 app.setName('BlumMods');
 if (process.platform === 'win32') app.setAppUserModelId('com.blummods.app');
@@ -16,7 +17,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 // ---------- storage ----------
 const DATA_FILE = () => path.join(app.getPath('userData'), 'blummods-data.json');
 const DEFAULT_DATA = {
-  settings: { username: '', signApiKey: '', autoReconnect: true, dedupeFollows: true, port: 21777, keyGapMs: 60 },
+  settings: { username: '', signApiKey: '', autoReconnect: true, dedupeFollows: true, port: 21777, keyGapMs: 60, feedOn: true, feedPort: 21213 },
   activeGameId: null,
   games: [],
   rules: [],
@@ -130,6 +131,33 @@ function startServer() {
   server.on('error', (e) => log(`Mod server error on port ${port}: ${e.message}`, 'bad'));
   server.listen(port, '127.0.0.1', () => log(`Mod server ready on ws://127.0.0.1:${port}/mods`));
 }
+// ---------- TikFinity-style feed: games with built-in TikFinity support connect here ----------
+let feedWss = null;
+const feedStatus = () => send('feed', { on: !!feedWss, port: Number(data.settings.feedPort) || 21213, clients: feedWss ? feedWss.clients.size : 0 });
+function stopFeed() { if (feedWss) { try { for (const c of feedWss.clients) c.terminate(); feedWss.close(); } catch {} feedWss = null; } feedStatus(); }
+function startFeed() {
+  stopFeed();
+  if (!data.settings.feedOn) return;
+  const port = Number(data.settings.feedPort) || 21213;
+  const wss = new WebSocketServer({ host: '127.0.0.1', port });
+  wss.on('listening', () => { feedWss = wss; feedStatus(); log(`Game feed ready on port ${port} (games that support TikFinity connect to this)`); });
+  wss.on('error', (e) => {
+    if (feedWss === wss) feedWss = null;
+    log(e.code === 'EADDRINUSE' ? `Game feed couldn't start: port ${port} is taken. Close TikFinity (it uses the same port), then turn the feed off and on in Settings.` : `Game feed error: ${e.message}`, 'warn');
+    feedStatus();
+  });
+  wss.on('connection', (ws) => {
+    log('A game connected to the game feed', 'good'); feedStatus();
+    ws.on('close', () => { log('A game disconnected from the game feed'); feedStatus(); });
+    ws.on('error', () => {});
+  });
+}
+function feedEvent(ev) {
+  if (!feedWss || !feedWss.clients.size) return;
+  const msg = toTikFinity(ev);
+  if (msg) broadcast(feedWss, msg);
+}
+
 function broadcast(wss, obj) {
   const s = JSON.stringify(obj);
   for (const c of wss.clients) if (c.readyState === 1) c.send(s);
@@ -202,6 +230,7 @@ function handleEvent(ev) {
   if (ev.type === 'follow') stats.follows++;
   if (ev.type === 'share') stats.shares++;
   const fired = engine.match(ev, activeRules(), { dedupeFollows: data.settings.dedupeFollows });
+  feedEvent(ev);
   if (ev.type === 'like') stats.likes = engine.likeTotal;
   for (const f of fired) {
     stats.fired += f.times;
@@ -218,7 +247,7 @@ let reconnectTimer = null;
 let status = { state: 'offline', text: 'Not connected' };
 const setStatus = (state, text) => { status = { state, text }; send('status', status); };
 const userOf = (u) => ({
-  uniqueId: u?.uniqueId || '', nickname: u?.nickname || u?.uniqueId || '',
+  uniqueId: u?.uniqueId || '', nickname: u?.nickname || u?.uniqueId || '', userId: u?.userId ? String(u.userId) : '',
   avatar: u?.profilePicture?.url?.[0] || '',
 });
 
@@ -244,7 +273,7 @@ async function connectTikTok() {
     handleEvent({
       type: 'gift', user: userOf(d.user),
       gift: {
-        id: d.giftId, name: g.giftName || d.extendedGiftInfo?.name || `Gift ${d.giftId}`,
+        id: d.giftId, giftType: g.giftType, name: g.giftName || d.extendedGiftInfo?.name || `Gift ${d.giftId}`,
         diamonds: g.diamondCount || d.extendedGiftInfo?.diamond_count || 0,
         count: d.repeatCount || 1, image: g.giftImage?.url?.[0] || giftCatalog.find((x) => String(x.id) === String(d.giftId))?.image || '',
       },
@@ -378,10 +407,12 @@ async function installUpdate() {
 function wireIpc() {
   ipcMain.handle('update-check', () => checkForUpdate(true));
   ipcMain.handle('update-install', () => installUpdate());
-  ipcMain.handle('get-init', () => ({ update: updateState, gifts: giftCatalog, data, status, stats, keyChoices: KEY_CHOICES, mods: [...mods.values()], userData: app.getPath('userData'), version: app.getVersion() }));
+  ipcMain.handle('get-init', () => ({ feed: { on: !!feedWss, port: Number(data.settings.feedPort) || 21213, clients: feedWss ? feedWss.clients.size : 0 }, update: updateState, gifts: giftCatalog, data, status, stats, keyChoices: KEY_CHOICES, mods: [...mods.values()], userData: app.getPath('userData'), version: app.getVersion() }));
   ipcMain.handle('save', (_e, next) => {
     const portChanged = next.settings?.port !== data.settings.port;
+    const feedChanged = next.settings?.feedOn !== data.settings.feedOn || next.settings?.feedPort !== data.settings.feedPort;
     data = next; save();
+    if (feedChanged) startFeed();
     if (portChanged) { try { server.close(); } catch {} startServer(); }
     return true;
   });
@@ -460,6 +491,7 @@ app.whenReady().then(() => {
   wireIpc();
   createWindow();
   startServer();
+  startFeed();
   initUpdater();
   if (!giftCatalog.length || giftsAreStale()) setTimeout(() => fetchGiftsDirect().then((n) => log(`Loaded ${n} gifts from TikTok`)).catch(() => {}), 2500);
 });
