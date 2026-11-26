@@ -10,7 +10,7 @@ namespace BlumMods.ShredABillion
     public class Plugin : BasePlugin
     {
         public const string Id = "blummods.shredabillion";
-        public const string Version = "0.1.0";
+        public const string Version = "0.2.0";
         internal static ManualLogSource L;
 
         public override void Load()

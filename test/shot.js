@@ -17,7 +17,7 @@ fs.writeFileSync(path.join(tmp, 'blummods-data.json'), JSON.stringify({
 const names = ['Rose','TikTok','GG','Ice Cream Cone','Heart Me','Finger Heart','Rosa','Perfume','Doughnut','Paper Crane','Hand Hearts','Confetti','Corgi','Money Gun','Galaxy','Blossom Fairy','Cactus Shuffle','Confetti Bear','DJ Set','Dreamy Hat','Health Potion','Jiggly Pudding','Magic Rhythm','Panda Snap','Lion','Universe'];
 const costs = [1,1,1,1,1,5,10,20,30,99,100,100,299,500,1000,399,399,399,399,399,399,399,399,399,29999,44999];
 fs.writeFileSync(path.join(tmp, 'gifts.json'), JSON.stringify(names.map((name, i) => ({ id: 5000 + i, name, diamond_count: costs[i], image: { url_list: [i % 5 === 4 ? 'file:///nope.png' : icon] } }))));
-fs.writeFileSync(path.join(tmp, 'plugins.json'), JSON.stringify({ games: [{ ...JSON.parse(fs.readFileSync(path.join(__dirname, '../plugins/shred-a-billion/plugin.json'), 'utf8')), exe: ['Lethal Company.exe'] }] }));
+fs.writeFileSync(path.join(tmp, 'plugins.json'), JSON.stringify({ games: [{ ...JSON.parse(fs.readFileSync(path.join(__dirname, '../plugins/shred-a-billion/plugin.json'), 'utf8')), exe: ['Lethal Company.exe'], sha256: 'a'.repeat(64) }] }));
 require('../src/main.js');
 const out = process.argv.find((a) => a.startsWith('--out='))?.slice(6) || '/tmp';
 app.on('browser-window-created', (_e, win) => {
@@ -29,6 +29,11 @@ app.on('browser-window-created', (_e, win) => {
     const WebSocket = require('ws'); const mod = new WebSocket('ws://127.0.0.1:21777/mods');
     mod.on('open', () => mod.send(JSON.stringify({ type: 'hello', game: 'Lethal Company' })));
     mod.on('message', (m) => console.log('MOD GOT', m.toString()));
+    for (const [name, url] of [['mods', 'ws://127.0.0.1:21777/mods'], ['feed', 'ws://127.0.0.1:21213/'], ['overlay', 'ws://127.0.0.1:21777/overlay']]) {
+      const bad = new WebSocket(url, { origin: 'https://evil.example' });
+      bad.on('open', () => console.log('SECURITY FAIL: website origin accepted on', name)); bad.on('error', () => console.log('website origin refused on', name));
+    }
+    const okOverlay = new WebSocket('ws://127.0.0.1:21777/overlay', { origin: 'http://127.0.0.1:21777' }); okOverlay.on('open', () => console.log('local overlay origin accepted')); okOverlay.on('error', () => console.log('FAIL: local overlay refused'));
     const game = new WebSocket('ws://127.0.0.1:21213/'); game.on('message', (m) => { const j = JSON.parse(m.toString()); console.log('FEED GOT', j.event, j.data.giftName || j.data.comment || j.data.likeCount || ''); });
     await shot('1-games');
     await js(`document.querySelector('[data-view=rules]').click(); document.getElementById('emptyStarter').click();`);

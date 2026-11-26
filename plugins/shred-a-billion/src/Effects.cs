@@ -20,12 +20,19 @@ namespace BlumMods.ShredABillion
         static readonly Stopwatch Clock = Stopwatch.StartNew();
         static double Now => Clock.Elapsed.TotalSeconds;
 
-        // jail
+        // jail (rules: Standard Events note). Solid cell, no snap-back, in the game's look, no progress while inside.
+        enum JailState { None, Settling, Active }
+        static JailState _jail = JailState.None;
+        internal static bool Jailed => _jail != JailState.None;
         static double _jailUntil;
-        static bool _jailed, _jailNeedsSpot;
-        static int _jailSettleFrames;
-        static Vector3 _jailPos;
+        static int _settleFrames, _escapes;
+        static double _lastEscapeAt;
+        static bool _onGround;                 // true once the sky cell had to be given up for a ground one
+        static Vector3 _anchor, _cell, _prePos;
+        static Quaternion _preRot;
         static readonly List<GameObject> Cage = new List<GameObject>();
+        static Material _barMat, _trimMat;
+        const float CellHeight = 30f;          // how far above the respawn point the cell is built
         static bool _multiplierWasActive;
         static int _failures;
 
@@ -43,7 +50,7 @@ namespace BlumMods.ShredABillion
                 try { Run(cmd, player); }
                 catch (Exception e) { Fail("'" + cmd.Name + "'", e); }
             }
-            if (_jailed) TickJail(player);
+            if (Jailed) TickJail(player);
             if (_multiplierWasActive && !MultiplierActive) { _multiplierWasActive = false; Plugin.Say("Money multiplier ended"); }
         }
 
@@ -55,15 +62,16 @@ namespace BlumMods.ShredABillion
                 case "jail":
                 {
                     var seconds = Clamp(c.Num("seconds", 15), 1, 600);
-                    if (_jailed) { _jailUntil += seconds; Plugin.Say("Jail extended by " + seconds + "s" + who); break; }
-                    player.Respawn();
-                    _jailed = true; _jailNeedsSpot = true; _jailSettleFrames = 3;
+                    if (Jailed) { _jailUntil += seconds; Plugin.Say("Jail extended by " + seconds + "s" + who); break; }
+                    _prePos = player.Position; _preRot = player.Root.rotation;
+                    player.Respawn();                       // go to the spawn point first, the cell is built from there
+                    _jail = JailState.Settling; _settleFrames = 5; _escapes = 0; _onGround = false;
                     _jailUntil = Now + seconds;
                     Plugin.Say("Jailed for " + seconds + "s" + who);
                     break;
                 }
                 case "unjail":
-                    if (_jailed) EndJail("Freed from jail" + who);
+                    if (Jailed) EndJail(player, "Freed from jail" + who);
                     break;
                 case "add_money":
                 {
@@ -110,52 +118,119 @@ namespace BlumMods.ShredABillion
 
         static double Clamp(double v, double min, double max) => v < min ? min : v > max ? max : v;
 
+        static Vector3 V(float x, float y, float z) { var v = default(Vector3); v.x = x; v.y = y; v.z = z; return v; }
+        static Color C(float r, float g, float b) { var c = default(Color); c.r = r; c.g = g; c.b = b; c.a = 1f; return c; }
+
         static void TickJail(PlayerController player)
         {
-            if (_jailNeedsSpot)
+            if (_jail == JailState.Settling)
             {
-                if (_jailSettleFrames-- > 0) return; // let the respawn land first
-                _jailPos = player.Position;
-                _jailNeedsSpot = false;
-                try { BuildCage(_jailPos); } catch (Exception e) { Fail("cage", e); }
+                if (_settleFrames-- > 0) return;            // let the respawn land first
+                _anchor = player.Position;
+                PlaceCell(player, V(_anchor.x, _anchor.y + CellHeight, _anchor.z));
+                _jail = JailState.Active;
+                return;
             }
+            if (Now >= _jailUntil) { EndJail(player, "Jail time is over"); return; }
+
+            // Walls are solid, so he is never moved while inside. This only catches being thrown clear of the cell.
             var p = player.Position;
-            float dx = p.x - _jailPos.x, dy = p.y - _jailPos.y, dz = p.z - _jailPos.z;
-            if (dx * dx + dz * dz > 1.1f * 1.1f || dy > 2.5f || dy < -2.5f)
-                player.Teleport(_jailPos, player.Root.rotation);
-            if (Now >= _jailUntil) EndJail("Jail time is over");
+            float dx = p.x - _cell.x, dz = p.z - _cell.z, dy = p.y - _cell.y;
+            if (dx * dx + dz * dz > 4.5f * 4.5f || dy < -3f || dy > 9f)
+            {
+                if (Now - _lastEscapeAt < 1.0) return;
+                _lastEscapeAt = Now; _escapes++;
+                if (_escapes >= 3 && !_onGround)
+                {
+                    // The game won't let him stay up there. Rebuild the cell on the ground at the spawn point.
+                    _onGround = true;
+                    Plugin.Say("The sky cell didn't hold, moving the jail to the ground");
+                    PlaceCell(player, _anchor);
+                }
+                else PutInside(player);
+            }
         }
 
-        static void EndJail(string message)
+        static void PlaceCell(PlayerController player, Vector3 floorTop)
         {
-            _jailed = false;
-            foreach (var g in Cage) { try { if (g != null) UnityEngine.Object.Destroy(g); } catch { } }
-            Cage.Clear();
+            ClearCage();
+            _cell = floorTop;
+            try { BuildCell(floorTop); } catch (Exception e) { Fail("building the cell", e); }
+            PutInside(player);
+        }
+
+        static void PutInside(PlayerController player) => player.Teleport(V(_cell.x, _cell.y + 1.1f, _cell.z), _preRot);
+
+        static void EndJail(PlayerController player, string message)
+        {
+            _jail = JailState.None;
+            ClearCage();
+            try { player.Teleport(_prePos, _preRot); } catch (Exception e) { Fail("leaving jail", e); } // back to where he was
             Plugin.Say(message);
         }
 
-        static Vector3 V(float x, float y, float z) { var v = default(Vector3); v.x = x; v.y = y; v.z = z; return v; }
-
-        // A ring of bars around the spot, with a lid.
-        static void BuildCage(Vector3 at)
+        static void ClearCage()
         {
-            const int bars = 14; const float radius = 1.5f, height = 3.2f;
+            foreach (var g in Cage) { try { if (g != null) UnityEngine.Object.Destroy(g); } catch { } }
+            Cage.Clear();
+        }
+
+        // Cartoony, bubbly cell to suit the game: chunky rounded candy-colored bars with bubble caps,
+        // on a solid floor with a solid roof. The bars are closer together than the player is wide.
+        static void BuildCell(Vector3 top)
+        {
+            const int bars = 22; const float radius = 2.3f, barHalf = 1.7f;
+            EnsureMaterials();
+            Piece(PrimitiveType.Cube, V(top.x, top.y - 0.2f, top.z), V(5.4f, 0.4f, 5.4f), _trimMat);                 // floor
+            Piece(PrimitiveType.Cube, V(top.x, top.y + barHalf * 2 + 0.25f, top.z), V(5.4f, 0.3f, 5.4f), _trimMat);  // roof
             for (var i = 0; i < bars; i++)
             {
                 var a = i * (2 * Math.PI / bars);
-                Bar(V(at.x + (float)Math.Cos(a) * radius, at.y + height / 2 - 0.2f, at.z + (float)Math.Sin(a) * radius), V(0.14f, height, 0.14f));
+                float x = top.x + (float)Math.Cos(a) * radius, z = top.z + (float)Math.Sin(a) * radius;
+                Piece(PrimitiveType.Cylinder, V(x, top.y + barHalf, z), V(0.34f, barHalf, 0.34f), _barMat);
+                Piece(PrimitiveType.Sphere, V(x, top.y + 0.12f, z), V(0.52f, 0.52f, 0.52f), _trimMat);               // bubble foot
             }
-            Bar(V(at.x, at.y + height - 0.1f, at.z), V(radius * 2 + 0.3f, 0.16f, radius * 2 + 0.3f));
+            Piece(PrimitiveType.Sphere, V(top.x, top.y + barHalf * 2 + 0.75f, top.z), V(1.3f, 1.3f, 1.3f), _barMat); // bubble on top
         }
 
-        static void Bar(Vector3 pos, Vector3 scale)
+        static void Piece(PrimitiveType type, Vector3 pos, Vector3 scale, Material mat)
         {
-            var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            g.name = "BlumMods cage";
+            var g = GameObject.CreatePrimitive(type);
+            g.name = "BlumMods jail";
             var t = g.transform;
             t.position = pos;
             t.localScale = scale;
             Cage.Add(g);
+            if (mat == null) return;
+            try { var r = g.GetComponent<Renderer>(); if (r != null) r.sharedMaterial = mat; }
+            catch (Exception e) { Fail("cell colors", e); }
+        }
+
+        // Glossy candy colors using a shader the game already ships, so the cell is lit like everything else.
+        static void EnsureMaterials()
+        {
+            if (_barMat != null && _trimMat != null) return;
+            try
+            {
+                _barMat = Candy(C(1.00f, 0.38f, 0.72f));   // bubblegum pink
+                _trimMat = Candy(C(0.56f, 0.42f, 1.00f));  // grape purple
+            }
+            catch (Exception e) { _barMat = null; _trimMat = null; Fail("cell colors", e); }
+        }
+
+        static Material Candy(Color color)
+        {
+            Material m = null;
+            foreach (var name in new[] { "Universal Render Pipeline/Lit", "Universal Render Pipeline/Simple Lit" })
+            {
+                var shader = Shader.Find(name);
+                if (shader != null) { m = new Material(shader); break; }
+            }
+            if (m == null) return null; // keep Unity's default look rather than guess
+            foreach (var prop in new[] { "_BaseColor", "_Color" }) if (m.HasProperty(prop)) m.SetColor(prop, color);
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.85f);
+            if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f);
+            return m;
         }
     }
 }

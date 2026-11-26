@@ -8,7 +8,10 @@ const ml = require('../src/modloader');
   assert.equal(ml.status(game).state, 'none');
   const z = new AdmZip(); z.addFile('BepInEx/core/BepInEx.Core.dll', Buffer.from('a')); z.addFile('winhttp.dll', Buffer.from('b')); z.addFile('doorstop_config.ini', Buffer.from('c')); const buf = z.toBuffer();
   let asked = ''; const fakeFetch = async (u) => { asked = u; return { ok: true, status: 200, headers: { get: () => String(buf.length) }, body: (async function* () { yield buf; })() }; };
-  let pct = 0; const st = await ml.install(game, fakeFetch, (p) => (pct = p));
+  let pct = 0; const st = await ml.install(game, fakeFetch, (p) => (pct = p), { skipPin: true });
+  const tmp3 = fs.mkdtempSync(path.join(os.tmpdir(), 'blum-ml-')); fs.writeFileSync(path.join(tmp3, 'G.exe'), 'x');
+  await assert.rejects(() => ml.install({ exe: path.join(tmp3, 'G.exe'), engine: 'Unity (IL2CPP)' }, fakeFetch), /does not match/); // the real pin rejects a different file
+  assert.deepEqual(fs.readdirSync(tmp3), ['G.exe']);
   assert.equal(st.state, 'installed'); assert.equal(pct, 100); assert.ok(asked.includes('IL2CPP-win-x64')); assert.ok(fs.existsSync(path.join(tmp, 'winhttp.dll')));
   fs.mkdirSync(path.join(tmp, 'BepInEx', 'interop')); fs.writeFileSync(path.join(tmp, 'BepInEx', 'interop', 'Game.Stream.dll'), 'x');
   assert.equal(ml.status(game).state, 'ready'); assert.equal(ml.status(game).plugin, '');
@@ -24,7 +27,7 @@ const ml = require('../src/modloader');
   // a bad download installs nothing
   const tmp2 = fs.mkdtempSync(path.join(os.tmpdir(), 'blum-ml-')); const exe2 = path.join(tmp2, 'G.exe'); fs.writeFileSync(exe2, 'x');
   const bad = new AdmZip(); bad.addFile('readme.txt', Buffer.from('x')); const bb = bad.toBuffer();
-  await assert.rejects(() => ml.install({ exe: exe2, engine: 'Unity (Mono)' }, async () => ({ ok: true, headers: { get: () => '0' }, body: (async function* () { yield bb; })() })), /looks wrong/);
+  await assert.rejects(() => ml.install({ exe: exe2, engine: 'Unity (Mono)' }, async () => ({ ok: true, headers: { get: () => '0' }, body: (async function* () { yield bb; })() }), () => {}, { skipPin: true }), /looks wrong/);
   assert.deepEqual(fs.readdirSync(tmp2), ['G.exe']);
   assert.equal(ml.uninstall(game).state, 'none'); assert.ok(fs.existsSync(exe));
   console.log('all modloader tests passed');

@@ -1,1 +1,1 @@
-Fixed the + New trigger and + Add game buttons
+Security hardening and fixes from a full code review

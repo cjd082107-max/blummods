@@ -28,7 +28,9 @@ namespace BlumMods.ShredABillion
                 try
                 {
                     Effects.Economy = __instance;
-                    if (!Effects.OwnAdd && amount > 0 && Effects.MultiplierActive) amount *= Effects.Multiplier;
+                    if (Effects.OwnAdd || amount <= 0) return;
+                    if (Effects.Jailed) { amount = 0; return; } // no earning from inside the cell
+                    if (Effects.MultiplierActive) amount *= Effects.Multiplier;
                 }
                 catch (Exception e) { Effects.Fail("money hook", e); }
             }

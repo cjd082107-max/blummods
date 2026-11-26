@@ -123,15 +123,6 @@ const TRIGGERS = {
   chat: { e: '💬', label: 'Chat cmd' },
   join: { e: '👋', label: 'Joins' },
 };
-const ACTIONS = {
-  game: 'Game action',
-  key: 'Press key',
-  mod: 'Mod command',
-  alert: 'Show alert',
-  sound: 'Play sound',
-  wait: 'Wait',
-};
-
 // ---------- persistence ----------
 let saveTimer;
 function persist() { clearTimeout(saveTimer); saveTimer = setTimeout(() => blum.save(D), 150); }
@@ -327,33 +318,6 @@ $('#ruleScope').onchange = renderRules;
 $('#addRuleBtn').onclick = () => openRuleModal(null);
 $('#addGameBtn').onclick = () => addGame();
 
-function triggerText(t) {
-  switch (t.type) {
-    case 'gift': return `${t.giftName ? esc(t.giftName) : 'Any gift'}${t.minDiamonds ? ` (${t.minDiamonds}+ <i class="coin"></i>)` : ''}`;
-    case 'follow': return 'Someone follows';
-    case 'like': return `Every ${t.likeEvery || 100} likes`;
-    case 'share': return 'Someone shares';
-    case 'chat': return t.command ? `Chat says “${esc(t.command)}”` : 'Any chat message';
-    case 'join': return 'Someone joins';
-  }
-  return '?';
-}
-function actionText(a) {
-  switch (a.kind) {
-    case 'game': {
-      const act = MANIFEST.games.flatMap((e) => e.actions || []).find((x) => x.id === a.action);
-      const ps = (act?.params || []).map((p) => `${a.params?.[p.id] ?? p.default} ${p.label}`).join(', ');
-      return `${esc(act?.label || a.action || 'game action')}${ps ? ` (${esc(ps)})` : ''}`;
-    }
-    case 'key': return `press ${esc(a.key || '?')}${Number(a.repeat) > 1 ? ` ×${a.repeat}` : ''}`;
-    case 'mod': return `mod: ${esc(a.command || '?')}`;
-    case 'alert': return `alert “${esc(a.text || '')}”`;
-    case 'sound': return `sound ${esc((a.file || '').split(/[\\/]/).pop() || '?')}`;
-    case 'wait': return `wait ${a.ms || 500}ms`;
-  }
-  return '?';
-}
-
 // ---------- events a trigger can fire (game actions from the plugin + built-ins) ----------
 const BUILTIN_EVENTS = [
   { kind: 'key', label: 'Press a key', category: 'Controls', icon: '⌨️', desc: 'Presses a key or mouse button in the game, as if you pressed it yourself. Works in any game, as long as the game window is in front.' },
@@ -398,9 +362,9 @@ function whenParts(t) {
 }
 const chipHTML = (icon, title, sub, cls = '') => `<span class="chip2 ${cls}"><span class="c-ic">${icon}</span><span class="c-tx"><b>${title}</b><small>${sub}</small></span></span>`;
 const whenChip = (t, cls = '') => { const w = whenParts(t); return chipHTML(w.icon, w.title, w.sub, cls); };
-function stepChip(a, gameId, cls = '') { const ev = eventFor(a, gameId); return chipHTML(`<span class="gimg ph">${ev.icon}</span>`, esc(ev.label), esc(stepSub(a, ev)), cls); }
+function stepChip(a, gameId, cls = '') { const ev = eventFor(a, gameId); return chipHTML(`<span class="gimg ph">${esc(ev.icon)}</span>`, esc(ev.label), esc(stepSub(a, ev)), cls); }
 const soundName = (a) => (a.file || '').split(/[\\/]/).pop().replace(/^\d+-/, '') || 'no file yet';
-const soundChip = (a, cls = '') => (a ? chipHTML('<span class="gimg ph">🎵</span>', esc(soundName(a)), `Volume ${a.volume ?? 80}%`, cls) : `<span class="chip2 dashed ${cls}"><span class="c-tx"><b>＋ Add sound</b></span></span>`);
+const soundChip = (a, cls = '') => (a ? chipHTML('<span class="gimg ph">🎵</span>', esc(soundName(a)), `Volume ${esc(a.volume ?? 80)}%`, cls) : `<span class="chip2 dashed ${cls}"><span class="c-tx"><b>＋ Add sound</b></span></span>`);
 
 function renderRules() {
   renderScope();
@@ -503,12 +467,13 @@ function openRuleModal(rule, preset, sel = 'when') {
   if (typeof sel === 'number' && !steps[sel]) sel = steps.length ? 0 : 'when';
   const ui = { sel, q: '', filter: 'all' };
   const t = r.trigger;
+  if (!TRIGGERS[t.type]) t.type = 'gift';
   const card = $('#modalCard');
   card.classList.add('wide');
   const allActions = () => [...steps, ...(sound ? [sound] : [])];
   const usedIn = (ev) => D.rules.some((x) => x.id !== r.id && (x.gameId || null) === (r.gameId || null) && (x.actions || []).some((a) => sameEvent(ev, a)));
 
-  const stepper = (attr, value, min, max, step) => `<span class="stepper"><button data-step="-1">−</button><input ${attr} type="number" value="${value}" ${min !== undefined ? `min="${min}"` : ''} ${max !== undefined ? `max="${max}"` : ''} step="${step || 'any'}"><button data-step="1">+</button></span>`;
+  const stepper = (attr, value, min, max, step) => `<span class="stepper"><button data-step="-1">−</button><input ${attr} type="number" value="${esc(value)}" ${min !== undefined ? `min="${esc(min)}"` : ''} ${max !== undefined ? `max="${esc(max)}"` : ''} step="${esc(step || 'any')}"><button data-step="1">+</button></span>`;
 
   const whenPane = () => `
     <div class="pane-list">${Object.entries(TRIGGERS).map(([k, v]) => `
@@ -543,7 +508,7 @@ function openRuleModal(rule, preset, sel = 'when') {
       <div class="prow"><label>Command</label><input data-f="command" value="${esc(a.command)}" placeholder="spawn_enemy" style="flex:1"></div>
       <div class="prow"><label>Extra info</label><input data-f="args" value="${esc(a.args)}" placeholder="{nickname}" style="flex:1"></div>`;
     return `
-      <div class="detail-head"><span class="big-ic">${ev.icon}</span><div><h3>${esc(ev.label)}</h3><span class="tag">${esc(ev.category)}</span></div>
+      <div class="detail-head"><span class="big-ic">${esc(ev.icon)}</span><div><h3>${esc(ev.label)}</h3><span class="tag">${esc(ev.category)}</span></div>
         <div class="detail-btns"><button class="btn small" id="stepTest">▶ Test</button>${steps.length > 1 ? '<button class="btn small ghost" id="stepRemove">Remove step</button>' : ''}</div></div>
       <p class="ev-desc">${esc(ev.desc)}</p>
       <div class="pdivider"></div>${body}`;
@@ -561,7 +526,7 @@ function openRuleModal(rule, preset, sel = 'when') {
         <input id="evSearch" placeholder="Search ${cat.length} events" value="${esc(ui.q)}" spellcheck="false">
         <div class="row filt">${[['all', 'All'], ['unused', 'Unused'], ['used', 'Used']].map(([k, l]) => `<button class="chip ${ui.filter === k ? 'sel' : ''}" data-filter="${k}">${l} ${counts[k]}</button>`).join('')}</div>
         <div class="ev-scroll">${shown.map((ev) => `
-          <button class="ev-item ${sameEvent(ev, a) ? 'sel' : ''}" data-ev="${cat.indexOf(ev)}"><span class="ev-ic">${ev.icon}</span><span><b>${esc(ev.label)}</b><small>${esc(ev.desc)}</small></span>${sameEvent(ev, a) ? '<span class="tick">✓</span>' : ''}</button>`).join('') || '<div class="empty-small">Nothing matches.</div>'}
+          <button class="ev-item ${sameEvent(ev, a) ? 'sel' : ''}" data-ev="${cat.indexOf(ev)}"><span class="ev-ic">${esc(ev.icon)}</span><span><b>${esc(ev.label)}</b><small>${esc(ev.desc)}</small></span>${sameEvent(ev, a) ? '<span class="tick">✓</span>' : ''}</button>`).join('') || '<div class="empty-small">Nothing matches.</div>'}
           ${noPlugin ? `<div class="notice" style="margin:10px 4px 0">${r.gameId ? 'This game has no BlumMods plugin yet, so only the general events are listed.' : 'Game events show up when "Works in" is set to a game with a BlumMods plugin.'}</div>` : ''}
         </div>
       </div>
@@ -575,7 +540,7 @@ function openRuleModal(rule, preset, sel = 'when') {
       <p class="ev-desc">Plays a sound from BlumMods when this trigger fires. Your stream picks it up along with the rest of your PC audio.</p>
       <div class="pdivider"></div>
       <div class="prow"><label>File<small>mp3, wav, ogg or m4a</small></label><button class="btn small" id="sndPick">${sound?.file ? 'Change sound' : 'Choose a sound'}</button><span class="unit">${sound ? esc(soundName(sound)) : ''}</span></div>
-      ${sound ? `<div class="prow"><label>Volume</label><input id="sndVol" type="range" min="0" max="100" value="${sound.volume ?? 80}" style="width:220px;padding:0"><span class="unit" id="sndVolTx">${sound.volume ?? 80}%</span></div>` : ''}
+      ${sound ? `<div class="prow"><label>Volume</label><input id="sndVol" type="range" min="0" max="100" value="${esc(sound.volume ?? 80)}" style="width:220px;padding:0"><span class="unit" id="sndVolTx">${esc(sound.volume ?? 80)}%</span></div>` : ''}
     </div>`;
 
   const draw = () => {

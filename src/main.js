@@ -24,11 +24,50 @@ const DEFAULT_DATA = {
   rules: [],
 };
 let data = structuredClone(DEFAULT_DATA);
+// Everything that becomes app data (saved file, restored backup, what the window sends) is cleaned here first.
+const TRIGGER_TYPES = ['gift', 'follow', 'like', 'share', 'chat', 'join'];
+const ACTION_KINDS = ['game', 'key', 'mod', 'alert', 'sound', 'wait'];
+const str = (v, max = 300) => (typeof v === 'string' ? v.slice(0, max) : '');
+const num = (v, d, min, max) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
+function cleanAction(a) {
+  if (!a || !ACTION_KINDS.includes(a.kind)) return null;
+  switch (a.kind) {
+    case 'game': return { kind: 'game', action: str(a.action, 60).replace(/[^\w.-]/g, ''), params: Object.fromEntries(Object.entries(a.params && typeof a.params === 'object' ? a.params : {}).slice(0, 12).map(([k, v]) => [str(k, 40).replace(/[^\w]/g, ''), num(v, 0, -1e15, 1e15)])) };
+    case 'key': return { kind: 'key', key: str(a.key, 40), holdMs: num(a.holdMs, 80, 20, 10000), repeat: num(a.repeat, 1, 1, 50) };
+    case 'mod': return { kind: 'mod', command: str(a.command, 100), args: str(a.args, 300) };
+    case 'alert': return { kind: 'alert', text: str(a.text, 300), color: /^#[0-9a-f]{6}$/i.test(a.color) ? a.color : '#25f4ee', seconds: num(a.seconds, 4, 1, 60) };
+    case 'sound': return { kind: 'sound', file: str(a.file, 500), volume: num(a.volume, 80, 0, 100) };
+    case 'wait': return { kind: 'wait', ms: num(a.ms, 500, 0, 60000) };
+  }
+  return null;
+}
+function cleanData(d) {
+  d = d && typeof d === 'object' ? d : {};
+  const s = d.settings && typeof d.settings === 'object' ? d.settings : {};
+  const games = (Array.isArray(d.games) ? d.games : []).slice(0, 500).filter((g) => g && typeof g === 'object' && g.id && g.exe).map((g) => ({
+    id: str(g.id, 40), name: str(g.name, 120) || 'Game', exe: str(g.exe, 500), launchArgs: str(g.launchArgs, 300),
+    icon: /^data:image\//.test(g.icon || '') ? String(g.icon).slice(0, 400000) : '', cover: /^file:/.test(g.cover || '') ? str(g.cover, 600) : '',
+    engine: str(g.engine, 40), moddable: str(g.moddable, 20), addedAt: num(g.addedAt, 0, 0, 1e14),
+  }));
+  const ids = new Set(games.map((g) => g.id));
+  const rules = (Array.isArray(d.rules) ? d.rules : []).slice(0, 2000).filter((r) => r && typeof r === 'object' && r.id && TRIGGER_TYPES.includes(r.trigger?.type)).map((r) => ({
+    id: str(r.id, 40), gameId: ids.has(r.gameId) ? r.gameId : null, name: str(r.name, 120) || 'Trigger', enabled: r.enabled !== false,
+    trigger: { type: r.trigger.type, giftName: str(r.trigger.giftName, 80), minDiamonds: num(r.trigger.minDiamonds, 0, 0, 1e9), likeEvery: num(r.trigger.likeEvery, 100, 1, 1e9), command: str(r.trigger.command, 80) },
+    repeatPerGift: !!r.repeatPerGift, cooldownSec: num(r.cooldownSec, 0, 0, 86400),
+    actions: (Array.isArray(r.actions) ? r.actions : []).slice(0, 20).map(cleanAction).filter(Boolean),
+  }));
+  return {
+    settings: {
+      username: str(s.username, 60).replace(/[^\w.]/g, ''), signApiKey: str(s.signApiKey, 200),
+      autoReconnect: s.autoReconnect !== false, dedupeFollows: s.dedupeFollows !== false,
+      port: num(s.port, 21777, 1024, 65535), keyGapMs: num(s.keyGapMs, 60, 0, 5000),
+      feedOn: s.feedOn !== false, feedPort: num(s.feedPort, 21213, 1024, 65535),
+    },
+    activeGameId: ids.has(d.activeGameId) ? d.activeGameId : null, games, rules,
+  };
+}
 function load() {
-  try {
-    const d = JSON.parse(fs.readFileSync(DATA_FILE(), 'utf8'));
-    data = { ...DEFAULT_DATA, ...d, settings: { ...DEFAULT_DATA.settings, ...(d.settings || {}) } };
-  } catch { /* first run */ }
+  try { data = cleanData(JSON.parse(fs.readFileSync(DATA_FILE(), 'utf8'))); } catch { /* first run */ }
 }
 function save() {
   fs.mkdirSync(path.dirname(DATA_FILE()), { recursive: true });
@@ -91,14 +130,23 @@ function createWindow() {
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     titleBarStyle: 'hidden',
     titleBarOverlay: { color: '#0b0b12', symbolColor: '#c9c9d6', height: 40 },
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: false },
   });
   win.removeMenu();
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-attach-webview', (e) => e.preventDefault());
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 
 // ---------- local server: game mods + stream overlay ----------
+// Games, plugins and local overlay pages may connect. A website open in a browser may not.
+// (Programs send no Origin; browsers always do, and it names the site the page came from.)
+function localOrigin(origin) {
+  if (!origin || origin === 'null' || origin.startsWith('file:')) return true;
+  try { return ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(origin).hostname) || /^(app|absolute|obs):/.test(origin); } catch { return false; }
+}
 let server, modWss, overlayWss;
 const mods = new Map(); // ws -> { game }
 function modsStatus() { send('mods', [...mods.values()]); }
@@ -110,21 +158,23 @@ function startServer() {
       res.end(fs.readFileSync(path.join(__dirname, 'overlay.html')));
     } else { res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end('BlumMods is running'); }
   });
-  modWss = new WebSocketServer({ noServer: true });
-  overlayWss = new WebSocketServer({ noServer: true });
+  modWss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+  overlayWss = new WebSocketServer({ noServer: true, maxPayload: 4 * 1024 });
   server.on('upgrade', (req, sock, head) => {
+    if (!localOrigin(req.headers.origin)) return sock.destroy();
     const target = req.url.startsWith('/overlay') ? overlayWss : req.url.startsWith('/mods') || req.url === '/' ? modWss : null;
     if (!target) return sock.destroy();
     target.handleUpgrade(req, sock, head, (ws) => target.emit('connection', ws, req));
   });
   modWss.on('connection', (ws) => {
+    if (mods.size >= 16) return ws.close();
     mods.set(ws, { game: 'Unknown mod' });
     modsStatus();
     ws.on('message', (m) => {
       try {
         const msg = JSON.parse(m.toString());
-        if (msg.type === 'hello') { mods.set(ws, { game: String(msg.game || 'Mod') }); modsStatus(); log(`${msg.game} connected${msg.plugin ? ` (plugin v${msg.plugin})` : ''}`, 'good'); }
-        else if (msg.type === 'log') log(`[${mods.get(ws)?.game}] ${msg.text}`);
+        if (msg.type === 'hello') { mods.set(ws, { game: String(msg.game || 'Mod').slice(0, 60) }); modsStatus(); log(`${msg.game} connected${msg.plugin ? ` (plugin v${msg.plugin})` : ''}`, 'good'); }
+        else if (msg.type === 'log') log(`[${mods.get(ws)?.game}] ${String(msg.text || '').slice(0, 300)}`);
       } catch { /* ignore */ }
     });
     ws.on('close', () => { mods.delete(ws); modsStatus(); });
@@ -140,7 +190,7 @@ function startFeed() {
   stopFeed();
   if (!data.settings.feedOn) return;
   const port = Number(data.settings.feedPort) || 21213;
-  const wss = new WebSocketServer({ host: '127.0.0.1', port });
+  const wss = new WebSocketServer({ host: '127.0.0.1', port, maxPayload: 4 * 1024, verifyClient: (info) => localOrigin(info.origin) });
   wss.on('listening', () => { feedWss = wss; feedStatus(); log(`Game feed ready on port ${port} (games that support TikFinity connect to this)`); });
   wss.on('error', (e) => {
     if (feedWss === wss) feedWss = null;
@@ -202,7 +252,7 @@ async function runAction(a, ev) {
       break;
     }
     case 'sound':
-      if (a.file) send('play-sound', { url: pathToFileURL(a.file).href, volume: (Number(a.volume) || 80) / 100 });
+      if (a.file && /\.(mp3|wav|ogg|m4a)$/i.test(a.file) && fs.existsSync(a.file)) send('play-sound', { url: pathToFileURL(a.file).href, volume: (Number(a.volume) || 0) / 100 });
       break;
     case 'alert': {
       const alert = { text: fillTemplate(a.text || '{nickname}', ev), color: a.color || '#25f4ee', seconds: Number(a.seconds) || 4 };
@@ -255,6 +305,7 @@ function handleEvent(ev) {
 // ---------- TikTok ----------
 let tt = null; // { connection }
 let wantConnected = false;
+let lastRoomId = '';
 let reconnectTimer = null;
 let status = { state: 'offline', text: 'Not connected' };
 const setStatus = (state, text) => { status = { state, text }; send('status', status); };
@@ -306,9 +357,12 @@ async function connectTikTok() {
 
   try {
     const state = await c.connect();
-    engine.reset();
-    Object.keys(stats).forEach((k) => (stats[k] = 0));
-    send('stats', stats);
+    if (state.roomId !== lastRoomId) { // a new stream, not a reconnect to the same one
+      lastRoomId = state.roomId;
+      engine.reset();
+      Object.keys(stats).forEach((k) => (stats[k] = 0));
+      send('stats', stats);
+    }
     setStatus('live', `Live as @${username}`);
     log(`Connected to @${username}'s LIVE (room ${state.roomId})`, 'good');
     try {
@@ -365,14 +419,24 @@ function copyToStore(file, sub) {
 // ---------- game plugins (the in-game half of BlumMods) ----------
 const MANIFEST_FILE = () => path.join(app.getPath('userData'), 'plugins.json');
 let pluginManifest = { games: [] };
-function loadManifest() { try { pluginManifest = JSON.parse(fs.readFileSync(MANIFEST_FILE(), 'utf8')); } catch { /* none yet */ } }
+function cleanManifest(m) {
+  const games = (Array.isArray(m?.games) ? m.games : []).slice(0, 200).filter((g) => g && /^[\w.-]+\.dll$/i.test(g.file || '') && /^[0-9a-f]{64}$/i.test(g.sha256 || '')).map((g) => ({
+    id: str(g.id, 60), name: str(g.name, 120), exe: (Array.isArray(g.exe) ? g.exe : []).slice(0, 10).map((e) => str(e, 120)), file: g.file, version: str(g.version, 20).replace(/[^\w.-]/g, ''), sha256: g.sha256.toLowerCase(),
+    actions: (Array.isArray(g.actions) ? g.actions : []).slice(0, 300).filter((a) => a && /^[\w.-]{1,60}$/.test(a.id || '')).map((a) => ({
+      id: a.id, label: str(a.label, 80) || a.id, category: str(a.category, 40), icon: str(a.icon, 8), desc: str(a.desc, 400),
+      params: (Array.isArray(a.params) ? a.params : []).slice(0, 12).filter((p) => p && /^\w{1,40}$/.test(p.id || '')).map((p) => ({ id: p.id, name: str(p.name, 40), label: str(p.label, 40), default: num(p.default, 0, -1e15, 1e15), min: num(p.min, 0, -1e15, 1e15), max: num(p.max, 1e15, -1e15, 1e15), step: num(p.step, 1, 0.0001, 1e12) })),
+    })),
+  }));
+  return { games };
+}
+function loadManifest() { try { pluginManifest = cleanManifest(JSON.parse(fs.readFileSync(MANIFEST_FILE(), 'utf8'))); } catch { /* none yet */ } }
 const modStatuses = () => Object.fromEntries(data.games.map((g) => [g.id, modloader.status(g, pluginManifest)]));
 async function refreshManifest() {
   try {
     const res = await net.fetch(modloader.PLUGINS_BASE + 'plugins.json', { cache: 'no-store' });
     if (!res.ok) throw new Error(String(res.status));
     const m = await res.json();
-    if (Array.isArray(m.games)) { pluginManifest = m; fs.writeFileSync(MANIFEST_FILE(), JSON.stringify(m)); send('plugins', { manifest: pluginManifest, statuses: modStatuses() }); }
+    if (Array.isArray(m.games)) { pluginManifest = cleanManifest(m); fs.writeFileSync(MANIFEST_FILE(), JSON.stringify(m)); send('plugins', { manifest: pluginManifest, statuses: modStatuses() }); }
   } catch { /* offline: keep the saved list */ }
 }
 // Put the newest plugin into every game that has the mod loader and a plugin available.
@@ -397,11 +461,12 @@ const setUpdate = (s) => { updateState = s; send('update', s); };
 function initUpdater() {
   const repo = require('../package.json').blummods?.updateRepo;
   if (!repo) return;
-  const resourcesDir = process.env.BLUM_UPDATE_RESOURCES || (app.isPackaged ? process.resourcesPath : null);
+  const dev = !app.isPackaged; // the BLUM_UPDATE_* test switches do nothing in the installed app
+  const resourcesDir = app.isPackaged ? process.resourcesPath : process.env.BLUM_UPDATE_RESOURCES || null;
   if (!resourcesDir) return; // running from source: nothing to swap
   updater = new Updater({
     repo, currentVersion: app.getVersion(), resourcesDir, workDir: path.join(app.getPath('userData'), 'updates'),
-    ...(process.env.BLUM_UPDATE_API ? { apiBase: process.env.BLUM_UPDATE_API } : {}),
+    ...(dev && process.env.BLUM_UPDATE_API ? { apiBase: process.env.BLUM_UPDATE_API } : {}),
   });
   updater.cleanup();
   setTimeout(() => checkForUpdate(false), 4000);
@@ -443,7 +508,15 @@ async function installUpdate() {
 }
 
 // ---------- IPC ----------
+const APP_PAGE = pathToFileURL(path.join(__dirname, 'renderer', 'index.html')).href;
 function wireIpc() {
+  // Refuse commands from anything that is not BlumMods' own page.
+  const realHandle = ipcMain.handle.bind(ipcMain);
+  ipcMain.handle = (channel, fn) => realHandle(channel, (e, ...args) => {
+    const from = e.senderFrame ? e.senderFrame.url : '';
+    if (from.split(/[?#]/)[0] !== APP_PAGE) throw new Error('blocked');
+    return fn(e, ...args);
+  });
   ipcMain.handle('mod-status', () => modStatuses());
   ipcMain.handle('plugins-refresh', async () => { await refreshPlugins(); return { manifest: pluginManifest, statuses: modStatuses() }; });
   ipcMain.handle('mod-install', async (_e, id) => {
@@ -469,7 +542,7 @@ function wireIpc() {
   ipcMain.handle('save', (_e, next) => {
     const portChanged = next.settings?.port !== data.settings.port;
     const feedChanged = next.settings?.feedOn !== data.settings.feedOn || next.settings?.feedPort !== data.settings.feedPort;
-    data = next; save();
+    data = cleanData(next); save();
     if (feedChanged) startFeed();
     if (portChanged) { try { server.close(); } catch {} startServer(); }
     return true;
@@ -491,8 +564,16 @@ function wireIpc() {
     } catch (e) { return { ok: false, error: String(e?.message || e) }; }
   });
   ipcMain.handle('disconnect', () => disconnectTikTok());
-  ipcMain.handle('simulate', (_e, ev) => handleEvent(ev));
-  ipcMain.handle('test-actions', (_e, { name, actions }) => enqueue(name || 'Test', actions || [], {
+  ipcMain.handle('simulate', (_e, ev) => {
+    if (!ev || !TRIGGER_TYPES.includes(ev.type)) return;
+    const u = ev.user || {};
+    handleEvent({
+      type: ev.type, user: { uniqueId: str(u.uniqueId, 60) || 'test_viewer', nickname: str(u.nickname, 60) || 'test_viewer', avatar: '' },
+      gift: ev.type === 'gift' ? { name: str(ev.gift?.name, 80) || 'Rose', image: /^https:/.test(ev.gift?.image || '') ? str(ev.gift.image, 600) : '', diamonds: num(ev.gift?.diamonds, 1, 0, 1e9), count: num(ev.gift?.count, 1, 1, 9999) } : undefined,
+      likeCount: num(ev.likeCount, 1, 1, 1e6), comment: str(ev.comment, 300),
+    });
+  });
+  ipcMain.handle('test-actions', (_e, { name, actions } = {}) => enqueue(str(name, 120) || 'Test', (Array.isArray(actions) ? actions : []).slice(0, 20).map(cleanAction).filter(Boolean), {
     type: 'gift', user: { uniqueId: 'test_viewer', nickname: 'Test Viewer' }, gift: { name: 'Rose', diamonds: 1, count: 1 }, comment: '', likeCount: 1,
   }));
   ipcMain.handle('clear-queue', () => { queue.length = 0; send('queue', 0); });
@@ -516,6 +597,7 @@ function wireIpc() {
   ipcMain.handle('launch-game', async (_e, id) => {
     const g = data.games.find((x) => x.id === id);
     if (!g) return false;
+    if (!fs.existsSync(g.exe) || !fs.statSync(g.exe).isFile()) { log(`Can't find ${g.name} at ${g.exe}. Edit the game and pick its file again.`, 'bad'); return false; }
     data.activeGameId = id; save();
     await syncPlugins();
     if (/\.(lnk|url)$/i.test(g.exe)) { const err = await shell.openPath(g.exe); if (err) log(err, 'bad'); }
@@ -526,7 +608,14 @@ function wireIpc() {
     log(`Launched ${g.name} — its rules are now active`, 'good');
     return true;
   });
-  ipcMain.handle('open-folder', (_e, p) => shell.openPath(p && fs.existsSync(p) && fs.statSync(p).isFile() ? path.dirname(p) : p));
+  ipcMain.handle('open-folder', (_e, p) => {
+    try {
+      let dir = path.resolve(String(p || ''));
+      if (fs.statSync(dir).isFile()) dir = path.dirname(dir);
+      if (fs.statSync(dir).isDirectory()) return shell.openPath(dir);
+    } catch { /* not there */ }
+    return '';
+  });
   ipcMain.handle('open-url', (_e, u) => { if (/^https?:\/\//.test(u)) shell.openExternal(u); });
   ipcMain.handle('export-data', async () => {
     const r = await dialog.showSaveDialog(win, { title: 'Back up BlumMods setup', defaultPath: 'blummods-backup.json' });
@@ -536,8 +625,9 @@ function wireIpc() {
   ipcMain.handle('import-data', async () => {
     const r = await dialog.showOpenDialog(win, { title: 'Restore BlumMods backup', properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] });
     if (r.canceled || !r.filePaths[0]) return null;
-    const d = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8'));
-    data = { ...DEFAULT_DATA, ...d, settings: { ...DEFAULT_DATA.settings, ...(d.settings || {}) } }; save();
+    let d;
+    try { d = JSON.parse(fs.readFileSync(r.filePaths[0], 'utf8')); } catch { log('That file is not a BlumMods backup', 'bad'); return null; }
+    data = cleanData(d); save(); startFeed();
     return data;
   });
 }
