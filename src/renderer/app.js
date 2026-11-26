@@ -324,6 +324,8 @@ function renderScope() {
   s.value = D.games.some((g) => g.id === cur) || cur === '' || cur === '*' ? cur : '*';
 }
 $('#ruleScope').onchange = renderRules;
+$('#addRuleBtn').onclick = () => openRuleModal(null);
+$('#addGameBtn').onclick = () => addGame();
 
 function triggerText(t) {
   switch (t.type) {

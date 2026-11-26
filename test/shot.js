@@ -47,6 +47,9 @@ app.on('browser-window-created', (_e, win) => {
     await shot('4-live');
     await js(`document.querySelector('[data-view=settings]').click()`);
     await shot('5-settings');
+    await js(`document.querySelector('[data-view=rules]').click(); document.getElementById('addRuleBtn').click();`);
+    console.log('NEW TRIGGER BUTTON OPENS EDITOR:', await js(`!document.getElementById('modal').classList.contains('hidden') && !!document.querySelector('.flow')`));
+    await js(`document.getElementById('rCancel').click()`);
     const saved = JSON.parse(fs.readFileSync(path.join(tmp, 'blummods-data.json'), 'utf8'));
     console.log('SAVED RULES', saved.rules.length);
     app.quit();
