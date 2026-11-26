@@ -123,7 +123,7 @@ function startServer() {
     ws.on('message', (m) => {
       try {
         const msg = JSON.parse(m.toString());
-        if (msg.type === 'hello') { mods.set(ws, { game: String(msg.game || 'Mod') }); modsStatus(); log(`Mod connected: ${msg.game}`, 'good'); }
+        if (msg.type === 'hello') { mods.set(ws, { game: String(msg.game || 'Mod') }); modsStatus(); log(`${msg.game} connected${msg.plugin ? ` (plugin v${msg.plugin})` : ''}`, 'good'); }
         else if (msg.type === 'log') log(`[${mods.get(ws)?.game}] ${msg.text}`);
       } catch { /* ignore */ }
     });
@@ -190,6 +190,17 @@ async function runAction(a, ev) {
       });
       if (!mods.size) log(`Mod command "${a.command}" sent, but no game mod is connected`, 'warn');
       break;
+    case 'game': {
+      const params = a.params || {};
+      const flat = Object.fromEntries(Object.entries(params).map(([k, v]) => ['p_' + k, Number(v) || 0]));
+      broadcast(modWss, {
+        type: 'command', command: a.action, params, ...flat,
+        event: ev.type, user: ev.user?.uniqueId || '', nickname: ev.user?.nickname || '',
+        gift: ev.gift?.name || '', count: ev.gift?.count || 1, coins: ev.gift?.diamonds || 0, comment: ev.comment || '',
+      });
+      if (!mods.size) log(`Game action "${a.action}" sent, but the game isn't connected. Launch it from BlumMods and wait for the green "connected" line.`, 'warn');
+      break;
+    }
     case 'sound':
       if (a.file) send('play-sound', { url: pathToFileURL(a.file).href, volume: (Number(a.volume) || 80) / 100 });
       break;
@@ -351,6 +362,33 @@ function copyToStore(file, sub) {
   return dest;
 }
 
+// ---------- game plugins (the in-game half of BlumMods) ----------
+const MANIFEST_FILE = () => path.join(app.getPath('userData'), 'plugins.json');
+let pluginManifest = { games: [] };
+function loadManifest() { try { pluginManifest = JSON.parse(fs.readFileSync(MANIFEST_FILE(), 'utf8')); } catch { /* none yet */ } }
+const modStatuses = () => Object.fromEntries(data.games.map((g) => [g.id, modloader.status(g, pluginManifest)]));
+async function refreshManifest() {
+  try {
+    const res = await net.fetch(modloader.PLUGINS_BASE + 'plugins.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error(String(res.status));
+    const m = await res.json();
+    if (Array.isArray(m.games)) { pluginManifest = m; fs.writeFileSync(MANIFEST_FILE(), JSON.stringify(m)); send('plugins', { manifest: pluginManifest, statuses: modStatuses() }); }
+  } catch { /* offline: keep the saved list */ }
+}
+// Put the newest plugin into every game that has the mod loader and a plugin available.
+async function syncPlugins() {
+  for (const g of data.games) {
+    const st = modloader.status(g, pluginManifest);
+    if (!st.hasActions || st.state === 'none' || st.state === 'unsupported' || st.plugin === st.pluginLatest) continue;
+    try {
+      await modloader.installPlugin(g, modloader.pluginFor(g, pluginManifest), (u) => net.fetch(u, { cache: 'no-store' }));
+      log(`${g.name}: BlumMods plugin v${st.pluginLatest} installed${st.plugin ? ' (updated)' : ''}`, 'good');
+    } catch (e) { log(`${g.name}: couldn't install the BlumMods plugin (${e.message})`, 'warn'); }
+  }
+  send('plugins', { manifest: pluginManifest, statuses: modStatuses() });
+}
+const refreshPlugins = async () => { await refreshManifest(); await syncPlugins(); };
+
 // ---------- updates ----------
 let updater = null;
 let updateInfo = null;
@@ -406,8 +444,8 @@ async function installUpdate() {
 
 // ---------- IPC ----------
 function wireIpc() {
-  const modStatuses = () => Object.fromEntries(data.games.map((g) => [g.id, modloader.status(g)]));
   ipcMain.handle('mod-status', () => modStatuses());
+  ipcMain.handle('plugins-refresh', async () => { await refreshPlugins(); return { manifest: pluginManifest, statuses: modStatuses() }; });
   ipcMain.handle('mod-install', async (_e, id) => {
     const g = data.games.find((x) => x.id === id);
     if (!g) return { ok: false, error: 'Game not found' };
@@ -415,6 +453,7 @@ function wireIpc() {
       log(`Installing the mod loader for ${g.name}…`);
       await modloader.install(g, (u) => net.fetch(u), (pct) => send('mod-progress', { id, pct }));
       log(`Mod loader installed for ${g.name}. Launch the game once and let it reach the main menu to finish setup.`, 'good');
+      await syncPlugins();
       return { ok: true, statuses: modStatuses() };
     } catch (e) { log(`Mod loader install failed: ${e.message}`, 'bad'); return { ok: false, error: String(e.message || e), statuses: modStatuses() }; }
   });
@@ -426,7 +465,7 @@ function wireIpc() {
   });
   ipcMain.handle('update-check', () => checkForUpdate(true));
   ipcMain.handle('update-install', () => installUpdate());
-  ipcMain.handle('get-init', () => ({ feed: { on: !!feedWss, port: Number(data.settings.feedPort) || 21213, clients: feedWss ? feedWss.clients.size : 0 }, update: updateState, gifts: giftCatalog, data, status, stats, keyChoices: KEY_CHOICES, mods: [...mods.values()], userData: app.getPath('userData'), version: app.getVersion() }));
+  ipcMain.handle('get-init', () => ({ manifest: pluginManifest, feed: { on: !!feedWss, port: Number(data.settings.feedPort) || 21213, clients: feedWss ? feedWss.clients.size : 0 }, update: updateState, gifts: giftCatalog, data, status, stats, keyChoices: KEY_CHOICES, mods: [...mods.values()], userData: app.getPath('userData'), version: app.getVersion() }));
   ipcMain.handle('save', (_e, next) => {
     const portChanged = next.settings?.port !== data.settings.port;
     const feedChanged = next.settings?.feedOn !== data.settings.feedOn || next.settings?.feedPort !== data.settings.feedPort;
@@ -478,6 +517,7 @@ function wireIpc() {
     const g = data.games.find((x) => x.id === id);
     if (!g) return false;
     data.activeGameId = id; save();
+    await syncPlugins();
     if (/\.(lnk|url)$/i.test(g.exe)) { const err = await shell.openPath(g.exe); if (err) log(err, 'bad'); }
     else {
       try { spawn(g.exe, g.launchArgs ? g.launchArgs.split(' ') : [], { cwd: path.dirname(g.exe), detached: true, stdio: 'ignore' }).unref(); }
@@ -505,6 +545,7 @@ function wireIpc() {
 app.whenReady().then(() => {
   load();
   loadGifts();
+  loadManifest();
   keys = new KeySender(app.getPath('userData'), log);
   if (process.platform === 'win32') setTimeout(() => keys.ensure(), 1500); // warm up so the first press isn't cut short
   wireIpc();
@@ -512,6 +553,7 @@ app.whenReady().then(() => {
   startServer();
   startFeed();
   initUpdater();
+  setTimeout(refreshPlugins, 3000);
   if (!giftCatalog.length || giftsAreStale()) setTimeout(() => fetchGiftsDirect().then((n) => log(`Loaded ${n} gifts from TikTok`)).catch(() => {}), 2500);
 });
 app.on('window-all-closed', () => { keys?.stop(); app.quit(); });

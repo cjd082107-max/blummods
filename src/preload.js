@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('blum', {
   disconnect: invoke('disconnect'),
   refreshGifts: invoke('refresh-gifts'),
   modStatus: invoke('mod-status'),
+  pluginsRefresh: invoke('plugins-refresh'),
   modInstall: invoke('mod-install'),
   modRemove: invoke('mod-remove'),
   updateCheck: invoke('update-check'),
@@ -25,7 +26,7 @@ contextBridge.exposeInMainWorld('blum', {
   exportData: invoke('export-data'),
   importData: invoke('import-data'),
   on: (ch, fn) => {
-    const ok = ['log', 'status', 'event', 'stats', 'mods', 'queue', 'alert', 'play-sound', 'gift-list', 'update', 'feed', 'mod-progress'];
+    const ok = ['log', 'status', 'event', 'stats', 'mods', 'queue', 'alert', 'play-sound', 'gift-list', 'update', 'feed', 'mod-progress', 'plugins'];
     if (ok.includes(ch)) ipcRenderer.on(ch, (_e, p) => fn(p));
   },
 });

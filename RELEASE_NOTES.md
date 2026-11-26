@@ -1,1 +1,1 @@
-Set up mods: one-click mod loader install for Unity games
+Game actions: jail, add/remove money, money multiplier and launch for SHRED A BILLION

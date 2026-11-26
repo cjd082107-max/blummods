@@ -2,6 +2,9 @@
 const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
+const crypto = require('crypto');
+
+const PLUGINS_BASE = 'https://github.com/cjd082107-max/blummods/releases/download/plugins/';
 
 const LOADERS = {
   il2cpp: { label: 'BepInEx 6 (be.793)', url: 'https://builds.bepinex.dev/projects/bepinex_be/793/BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.793%2Bdbc82f0.zip' },
@@ -10,16 +13,44 @@ const LOADERS = {
 const kindOf = (engine) => (/IL2CPP/i.test(engine || '') ? 'il2cpp' : /Mono/i.test(engine || '') ? 'mono' : null);
 const hasFiles = (dir, re) => { try { return fs.readdirSync(dir).some((f) => re.test(f)); } catch { return false; } };
 
-// -> { kind, state: 'unsupported' | 'none' | 'installed' | 'ready', plugin: bool }
-function status(game) {
+// Which entry of the plugin list (plugins.json) belongs to this game, matched by its .exe name.
+function pluginFor(game, manifest) {
+  const exe = path.basename(game.exe || '').toLowerCase();
+  return ((manifest && manifest.games) || []).find((g) => (g.exe || []).some((e) => String(e).toLowerCase() === exe)) || null;
+}
+const pluginDir = (game) => path.join(path.dirname(game.exe), 'BepInEx', 'plugins', 'BlumMods');
+function installedPluginVersion(game, entry) {
+  try {
+    if (!fs.existsSync(path.join(pluginDir(game), entry.file))) return '';
+    return fs.readFileSync(path.join(pluginDir(game), entry.file + '.version'), 'utf8').trim() || '?';
+  } catch { return '?'; }
+}
+async function installPlugin(game, entry, fetchFn) {
+  const res = await fetchFn(PLUGINS_BASE + encodeURIComponent(entry.file));
+  if (!res.ok) throw new Error(`Plugin download failed (${res.status})`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (entry.sha256 && crypto.createHash('sha256').update(buf).digest('hex') !== entry.sha256) throw new Error('Plugin download was damaged');
+  fs.mkdirSync(pluginDir(game), { recursive: true });
+  try { fs.writeFileSync(path.join(pluginDir(game), entry.file), buf); }
+  catch (e) { throw new Error(/EPERM|EACCES|EBUSY/.test(e.code || '') ? 'the game is running, close it to update its plugin' : e.message); }
+  fs.writeFileSync(path.join(pluginDir(game), entry.file + '.version'), entry.version);
+}
+
+// -> { kind, state: 'unsupported' | 'none' | 'installed' | 'ready', plugin: installed version or '', pluginLatest, hasActions }
+function status(game, manifest) {
+  const st = loaderStatus(game);
+  const entry = st.state === 'unsupported' ? null : pluginFor(game, manifest);
+  return { ...st, plugin: entry && st.state !== 'none' ? installedPluginVersion(game, entry) : '', pluginLatest: entry ? entry.version : '', hasActions: !!entry };
+}
+function loaderStatus(game) {
   const kind = kindOf(game.engine);
-  if (!kind || !/\.exe$/i.test(game.exe || '')) return { kind, state: 'unsupported', plugin: false };
+  if (!kind || !/\.exe$/i.test(game.exe || '')) return { kind, state: 'unsupported' };
   const dir = path.dirname(game.exe);
   const bep = path.join(dir, 'BepInEx');
-  if (!fs.existsSync(path.join(bep, 'core'))) return { kind, state: 'none', plugin: false };
+  if (!fs.existsSync(path.join(bep, 'core'))) return { kind, state: 'none' };
   // "ready" = the game has been started once with the loader, so it has finished its own setup
   const ran = kind === 'il2cpp' ? hasFiles(path.join(bep, 'interop'), /\.dll$/i) : fs.existsSync(path.join(bep, 'LogOutput.log'));
-  return { kind, state: ran ? 'ready' : 'installed', plugin: hasFiles(path.join(bep, 'plugins', 'BlumMods'), /\.dll$/i) };
+  return { kind, state: ran ? 'ready' : 'installed' };
 }
 
 async function install(game, fetchFn, onProgress = () => {}) {
@@ -47,4 +78,4 @@ function uninstall(game) {
   return status(game);
 }
 
-module.exports = { status, install, uninstall, LOADERS, kindOf };
+module.exports = { status, install, uninstall, pluginFor, installPlugin, installedPluginVersion, LOADERS, kindOf, PLUGINS_BASE };

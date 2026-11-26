@@ -27,6 +27,8 @@ Some games have TikTok LIVE support built in and look for TikFinity on your PC. 
 
 On a Unity game's card, **Set up mods** installs the BepInEx mod loader into that game's folder (about 40 MB from the official BepInEx site). Launch the game once afterwards and let it reach the main menu; the first launch can take a few minutes while the loader prepares the game. To undo it, open the game's edit screen and click **Remove mod loader**. Only use mods in solo play.
 
+For games that have a BlumMods plugin (SHRED A BILLION so far), the app installs the plugin by itself once the mod loader is in, and keeps it updated. Launch the game from BlumMods; when the feed says the game connected, triggers can use **Game action**, a dropdown of things the plugin can do in that game (jail the player, add or remove money, money multiplier, launch).
+
 ## Updates
 
 BlumMods checks for a new version when it opens. If there is one, a banner drops down from the top: click **Update now** and it downloads, installs and restarts. Your games and triggers are kept. You can also check by hand in **Settings → Check for updates**. Keep the BlumMods folder somewhere normal like `C:\BlumMods` (not Program Files), so the app is allowed to update itself.

@@ -124,6 +124,7 @@ const TRIGGERS = {
   join: { e: '👋', label: 'Joins' },
 };
 const ACTIONS = {
+  game: 'Game action',
   key: 'Press key',
   mod: 'Mod command',
   alert: 'Show alert',
@@ -169,13 +170,26 @@ function coverHTML(g, cls = '') {
 
 // ---------- mod loader status ----------
 let MODS = {};
+let MANIFEST = { games: [] };
+// The plugin entry (with its action list) for one of the library's games, matched by .exe name.
+function pluginEntry(gameId) {
+  const g = D.games.find((x) => x.id === gameId);
+  if (!g) return null;
+  const exe = String(g.exe || '').split(/[\\/]/).pop().toLowerCase();
+  return MANIFEST.games.find((e) => (e.exe || []).some((x) => String(x).toLowerCase() === exe)) || null;
+}
+const gameActions = (gameId) => pluginEntry(gameId)?.actions || [];
+const defaultParams = (act) => Object.fromEntries((act?.params || []).map((p) => [p.id, p.default]));
+blum.on('plugins', ({ manifest, statuses }) => { MANIFEST = manifest; MODS = statuses; if ($('#view-games').classList.contains('active') && $('#modal').classList.contains('hidden')) renderGames(); });
 async function refreshMods() { try { MODS = await blum.modStatus(); } catch { /* keep the last known */ } }
 function modRowHTML(g) {
   const m = MODS[g.id];
   if (!m || m.state === 'unsupported') return '<span class="mod-note">Keys and game feed only</span>';
   if (m.state === 'none') return '<button class="btn small" data-a="modsetup">🧩 Set up mods</button>';
   if (m.state === 'installed') return '<span class="mod-note warn">Mod loader installed. Launch the game once to finish.</span>';
-  return `<span class="mod-note ok">Mod loader ready${m.plugin ? ' · BlumMods plugin ✓' : ''}</span>`;
+  
+  if (!m.hasActions) return '<span class="mod-note ok">Mod loader ready · no BlumMods plugin for this game yet</span>';
+  return `<span class="mod-note ok">Mods ready · plugin ${m.plugin ? 'v' + esc(m.plugin) : 'installing…'}</span>`;
 }
 blum.on('mod-progress', ({ id, pct }) => { const b = document.querySelector(`[data-mod="${id}"] [data-a=modsetup]`); if (b) b.textContent = `Downloading… ${pct}%`; });
 window.addEventListener('focus', async () => { await refreshMods(); if ($('#view-games').classList.contains('active') && $('#modal').classList.contains('hidden')) renderGames(); });
@@ -324,6 +338,11 @@ function triggerText(t) {
 }
 function actionText(a) {
   switch (a.kind) {
+    case 'game': {
+      const act = MANIFEST.games.flatMap((e) => e.actions || []).find((x) => x.id === a.action);
+      const ps = (act?.params || []).map((p) => `${a.params?.[p.id] ?? p.default} ${p.label}`).join(', ');
+      return `${esc(act?.label || a.action || 'game action')}${ps ? ` (${esc(ps)})` : ''}`;
+    }
     case 'key': return `press ${esc(a.key || '?')}${Number(a.repeat) > 1 ? ` ×${a.repeat}` : ''}`;
     case 'mod': return `mod: ${esc(a.command || '?')}`;
     case 'alert': return `alert “${esc(a.text || '')}”`;
@@ -391,9 +410,14 @@ function newRule() {
     repeatPerGift: true, cooldownSec: 0, actions: [{ kind: 'key', key: 'Space', holdMs: 80, repeat: 1 }],
   };
 }
+function firstActionFor(gameId) {
+  const act = gameActions(gameId)[0];
+  return act ? [{ kind: 'game', action: act.id, params: defaultParams(act) }] : [{ kind: 'key', key: 'Space', holdMs: 80, repeat: 1 }];
+}
 
 function defaultAction(kind) {
   return {
+    game: { kind, action: '', params: {} },
     key: { kind, key: 'Space', holdMs: 80, repeat: 1 },
     mod: { kind, command: '', args: '' },
     alert: { kind, text: '{nickname} sent {gift}!', color: '#25f4ee', seconds: 4 },
@@ -405,10 +429,19 @@ function defaultAction(kind) {
 function openRuleModal(rule, preset) {
   const isNew = !rule;
   const r = structuredClone(rule || { ...newRule(), ...(preset || {}) });
+  if (isNew) r.actions = firstActionFor(r.gameId);
   const card = $('#modalCard');
 
   const actionFields = (a, i) => {
     switch (a.kind) {
+      case 'game': {
+        const acts = gameActions(r.gameId);
+        if (!acts.length) return '<span class="lbl">No game actions here yet. Under "Works in", pick a game that has a BlumMods plugin (set up mods on its card first).</span>';
+        let act = acts.find((x) => x.id === a.action);
+        if (!act) { act = acts[0]; a.action = act.id; a.params = defaultParams(act); }
+        return `<select data-ga="${i}" style="min-width:190px">${acts.map((x) => `<option value="${esc(x.id)}" ${x.id === act.id ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select>` +
+          act.params.map((p) => `<input data-gp="${esc(p.id)}" type="number" min="${p.min ?? ''}" max="${p.max ?? ''}" step="${p.step ?? 'any'}" value="${a.params?.[p.id] ?? p.default}" style="width:110px"><span class="lbl">${esc(p.label)}</span>`).join('');
+      }
       case 'key': return `
         <input data-f="key" value="${esc(a.key)}" list="keyList" style="width:110px" placeholder="key">
         <button class="btn small" data-rec="${i}">Record</button>
@@ -470,7 +503,7 @@ function openRuleModal(rule, preset) {
       </div>`;
 
     $('#rName').oninput = (e) => (r.name = e.target.value);
-    $('#rScope').onchange = (e) => (r.gameId = e.target.value || null);
+    $('#rScope').onchange = (e) => { r.gameId = e.target.value || null; draw(); };
     $('#rCd').oninput = (e) => (r.cooldownSec = Number(e.target.value) || 0);
     $$('.ttype', card).forEach((el) => (el.onclick = () => { t.type = el.dataset.t; draw(); }));
     if ($('#tGiftName')) {
@@ -493,6 +526,13 @@ function openRuleModal(rule, preset) {
         a[inp.dataset.f] = inp.type === 'number' || inp.type === 'range' ? Number(inp.value) : inp.value;
       }));
     });
+    $$('[data-ga]', card).forEach((s) => (s.onchange = () => {
+      const a = r.actions[Number(s.dataset.ga)]; a.action = s.value; a.params = defaultParams(gameActions(r.gameId).find((x) => x.id === s.value)); draw();
+    }));
+    $$('.action', card).forEach((row) => {
+      const a = r.actions[Number(row.dataset.i)];
+      $$('[data-gp]', row).forEach((inp) => (inp.oninput = () => { a.params = a.params || {}; a.params[inp.dataset.gp] = Number(inp.value); }));
+    });
     $$('[data-pick]', card).forEach((b) => (b.onclick = async () => { const f = await blum.pickSound(); if (f) { r.actions[Number(b.dataset.pick)].file = f; draw(); } }));
     $$('[data-rec]', card).forEach((b) => (b.onclick = () => recordKey(b, (k) => { r.actions[Number(b.dataset.rec)].key = k; draw(); })));
 
@@ -500,6 +540,7 @@ function openRuleModal(rule, preset) {
     $('#rTest').onclick = () => testActions(r.name || 'Test', r.actions);
     $('#rSave').onclick = () => {
       if (!r.actions.length) return toast('Add at least one action', 'var(--red)');
+      if (r.actions.some((a) => a.kind === 'game' && !a.action)) return toast('One game action has nothing picked. Choose a game under "Works in" first.', 'var(--red)');
       const bad = r.actions.find((a) => a.kind === 'key' && !a.key);
       if (bad) return toast('One of your key actions has no key', 'var(--red)');
       if (!r.name.trim()) r.name = `${TRIGGERS[t.type].label}${t.type === 'gift' && t.giftName ? ': ' + t.giftName : ''}`;
@@ -729,6 +770,7 @@ function renderAll() { renderGames(); renderActiveGame(); renderSettings(); if (
   const init = await blum.init();
   D = init.data; KEYS = init.keyChoices;
   if (init.gifts?.length) { GIFTS = init.gifts; GIFTS_REAL = true; }
+  if (init.manifest?.games) MANIFEST = init.manifest;
   $('#keyList').innerHTML = KEYS.map((k) => `<option value="${k}">`).join('');
   $('#dataFolderBtn').onclick = () => blum.openFolder(init.userData);
   $('#versionInfo').textContent = `BlumMods v${init.version} — your games, triggers and settings are saved automatically.`;

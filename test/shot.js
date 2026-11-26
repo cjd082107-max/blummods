@@ -17,6 +17,7 @@ fs.writeFileSync(path.join(tmp, 'blummods-data.json'), JSON.stringify({
 const names = ['Rose','TikTok','GG','Ice Cream Cone','Heart Me','Finger Heart','Rosa','Perfume','Doughnut','Paper Crane','Hand Hearts','Confetti','Corgi','Money Gun','Galaxy','Blossom Fairy','Cactus Shuffle','Confetti Bear','DJ Set','Dreamy Hat','Health Potion','Jiggly Pudding','Magic Rhythm','Panda Snap','Lion','Universe'];
 const costs = [1,1,1,1,1,5,10,20,30,99,100,100,299,500,1000,399,399,399,399,399,399,399,399,399,29999,44999];
 fs.writeFileSync(path.join(tmp, 'gifts.json'), JSON.stringify(names.map((name, i) => ({ id: 5000 + i, name, diamond_count: costs[i], image: { url_list: [i % 5 === 4 ? 'file:///nope.png' : icon] } }))));
+fs.writeFileSync(path.join(tmp, 'plugins.json'), JSON.stringify({ games: [{ ...JSON.parse(fs.readFileSync(path.join(__dirname, '../plugins/shred-a-billion/plugin.json'), 'utf8')), exe: ['Lethal Company.exe'] }] }));
 require('../src/main.js');
 const out = process.argv.find((a) => a.startsWith('--out='))?.slice(6) || '/tmp';
 app.on('browser-window-created', (_e, win) => {
@@ -41,7 +42,7 @@ app.on('browser-window-created', (_e, win) => {
     await js(`document.activeElement.blur()`); await wait(200);
     await js(`document.getElementById('tGiftBrowse').click()`);
     await shot('8-picker');
-    await js(`document.querySelector('#pickerMount .gift[data-name="Corgi"]').click(); document.getElementById('rCancel').click(); document.querySelector('[data-view=rules]').click();`);
+    await js(`document.querySelector('#pickerMount .gift[data-name="Galaxy"]').click(); document.getElementById('rSave').click(); document.querySelector('[data-view=rules]').click();`);
     await js(`document.querySelector('.rule [data-a=edit]').click()`);
     await shot('3-edit');
     await js(`document.querySelector('#rCancel').click(); document.querySelector('[data-view=live]').click(); document.getElementById('tDelay').checked=false;
