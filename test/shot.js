@@ -35,6 +35,9 @@ app.on('browser-window-created', (_e, win) => {
     await shot('6-gifts');
     await js(`document.querySelector('.gift[data-name="Galaxy"]').click()`);
     await shot('7-gift-trigger');
+    await js(`const i=document.getElementById('tGiftName'); i.value=''; i.focus(); i.dispatchEvent(new Event('input'))`);
+    await shot('7b-combo');
+    await js(`document.activeElement.blur()`); await wait(200);
     await js(`document.getElementById('tGiftBrowse').click()`);
     await shot('8-picker');
     await js(`document.querySelector('#pickerMount .gift[data-name="Corgi"]').click(); document.getElementById('rCancel').click(); document.querySelector('[data-view=rules]').click();`);

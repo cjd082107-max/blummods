@@ -43,7 +43,7 @@ Each **Mod command** action sends this to every connected mod:
 
 ```json
 { "type": "command", "command": "spawn_enemy", "args": "Bob", "event": "gift",
-  "user": "bob123", "nickname": "Bob", "gift": "Galaxy", "count": 1, "diamonds": 1000, "comment": "" }
+  "user": "bob123", "nickname": "Bob", "gift": "Galaxy", "count": 1, "coins": 1000, "comment": "" }
 ```
 
 A mod can write to the BlumMods feed by sending `{ "type": "log", "text": "Spawned a Bracken!" }`.

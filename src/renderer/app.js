@@ -58,6 +58,45 @@ function mountGiftGrid(mount, { onPick, selected = '', showCounts = false }) {
   draw();
 }
 
+// Type-ahead dropdown under a gift name box: picture, name and coin price for each match.
+let comboEl = null;
+function closeGiftCombo() { if (comboEl) { comboEl.remove(); comboEl = null; } }
+function attachGiftCombo(input, onChoose) {
+  let items = []; let active = -1;
+  const open = () => {
+    const q = input.value.trim().toLowerCase();
+    items = GIFTS.filter((g) => !q || g.name.toLowerCase().includes(q))
+      .sort((a, b) => (q ? (b.name.toLowerCase().startsWith(q) - a.name.toLowerCase().startsWith(q)) : 0) || a.diamonds - b.diamonds || a.name.localeCompare(b.name)).slice(0, 60);
+    closeGiftCombo();
+    if (!items.length) return;
+    active = -1;
+    comboEl = document.createElement('div'); comboEl.className = 'gift-combo';
+    comboEl.innerHTML = items.map((g, i) => `<div class="gc-item" data-i="${i}">${giftImg(g)}<span class="gc-name">${esc(g.name)}</span><span class="gcost"><i class="coin"></i>${g.diamonds.toLocaleString()}</span></div>`).join('');
+    const r = input.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom - 12;
+    comboEl.style.left = r.left + 'px'; comboEl.style.width = Math.max(r.width, 280) + 'px';
+    if (below >= 200) { comboEl.style.top = r.bottom + 4 + 'px'; comboEl.style.maxHeight = Math.min(340, below) + 'px'; }
+    else { comboEl.style.bottom = window.innerHeight - r.top + 4 + 'px'; comboEl.style.maxHeight = Math.min(340, r.top - 12) + 'px'; }
+    comboEl.onmousedown = (e) => { e.preventDefault(); const el = e.target.closest('.gc-item'); if (el) choose(items[Number(el.dataset.i)]); };
+    document.body.appendChild(comboEl);
+  };
+  const choose = (g) => { input.value = g.name; closeGiftCombo(); onChoose(g); };
+  const mark = () => { $$('.gc-item', comboEl).forEach((el, i) => el.classList.toggle('on', i === active)); $('.gc-item.on', comboEl)?.scrollIntoView({ block: 'nearest' }); };
+  input.addEventListener('focus', open);
+  input.addEventListener('click', () => { if (!comboEl) open(); });
+  input.addEventListener('input', open);
+  input.addEventListener('blur', () => setTimeout(closeGiftCombo, 120));
+  input.addEventListener('keydown', (e) => {
+    if (!comboEl) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(items.length - 1, active + 1); mark(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(0, active - 1); mark(); }
+    else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); e.stopPropagation(); choose(items[active]); }
+    else if (e.key === 'Escape') { e.stopPropagation(); closeGiftCombo(); }
+  });
+}
+window.addEventListener('resize', closeGiftCombo);
+document.addEventListener('scroll', (e) => { if (comboEl && !comboEl.contains(e.target)) closeGiftCombo(); }, true);
+
 function openGiftPicker(selected, onPick) {
   const close = () => $('#picker').classList.add('hidden');
   mountGiftGrid($('#pickerMount'), { selected, onPick: (g) => { close(); onPick(g); } });
@@ -246,7 +285,7 @@ $('#ruleScope').onchange = renderRules;
 
 function triggerText(t) {
   switch (t.type) {
-    case 'gift': return `${t.giftName ? esc(t.giftName) : 'Any gift'}${t.minDiamonds ? ` (${t.minDiamonds}+ 💎)` : ''}`;
+    case 'gift': return `${t.giftName ? esc(t.giftName) : 'Any gift'}${t.minDiamonds ? ` (${t.minDiamonds}+ <i class="coin"></i>)` : ''}`;
     case 'follow': return 'Someone follows';
     case 'like': return `Every ${t.likeEvery || 100} likes`;
     case 'share': return 'Someone shares';
@@ -375,8 +414,8 @@ function openRuleModal(rule, preset) {
       <div class="trigger-types">${Object.entries(TRIGGERS).map(([k, v]) => `<div class="ttype ${t.type === k ? 'sel' : ''}" data-t="${k}"><span class="e">${v.e}</span>${v.label}</div>`).join('')}</div>
       ${t.type === 'gift' ? `
         <div class="grid2">
-          <div class="field"><label>Which gift</label><div class="gift-field">${giftImg(findGift(t.giftName))}<input id="tGiftName" list="giftList" value="${esc(t.giftName)}" placeholder="leave empty for any gift"><button class="btn small" id="tGiftBrowse">Browse</button></div></div>
-          <div class="field"><label>Only if worth at least (💎 per gift)</label><input id="tMin" type="number" min="0" value="${t.minDiamonds || 0}"></div>
+          <div class="field"><label>Which gift</label><div class="gift-field">${giftImg(findGift(t.giftName))}<input id="tGiftName" autocomplete="off" value="${esc(t.giftName)}" placeholder="leave empty for any gift"><button class="btn small" id="tGiftBrowse">Browse</button></div></div>
+          <div class="field"><label>Only if worth at least (coins per gift)</label><input id="tMin" type="number" min="0" value="${t.minDiamonds || 0}"></div>
         </div>
         <label class="chk"><input type="checkbox" id="tRepeat" ${r.repeatPerGift ? 'checked' : ''}> Run once for each gift in a combo (x5 roses = 5 times, max 20)</label>` : ''}
       ${t.type === 'like' ? `<div class="field"><label>Every how many likes</label><input id="tLikes" type="number" min="1" value="${t.likeEvery || 100}" class="w-num"></div>` : ''}
@@ -396,7 +435,7 @@ function openRuleModal(rule, preset) {
           <button class="btn small ghost" data-del="${i}" title="Remove">✕</button>
         </div>`).join('') || '<div class="empty-small">Add at least one action above.</div>'}
       </div>
-      <p class="hint">Use <code>{nickname}</code> <code>{user}</code> <code>{gift}</code> <code>{count}</code> <code>{diamonds}</code> <code>{comment}</code> <code>{args}</code> <code>{likes}</code> in text.</p>
+      <p class="hint">Use <code>{nickname}</code> <code>{user}</code> <code>{gift}</code> <code>{count}</code> <code>{coins}</code> <code>{comment}</code> <code>{args}</code> <code>{likes}</code> in text.</p>
       <div class="modal-foot">
         <div class="row">${isNew ? '' : '<button class="btn danger" id="rDelete">Delete</button>'}<button class="btn" id="rTest">Test it</button></div>
         <div class="row"><button class="btn" id="rCancel">Cancel</button><button class="btn primary" id="rSave">Save trigger</button></div>
@@ -408,7 +447,7 @@ function openRuleModal(rule, preset) {
     $$('.ttype', card).forEach((el) => (el.onclick = () => { t.type = el.dataset.t; draw(); }));
     if ($('#tGiftName')) {
       $('#tGiftName').oninput = (e) => (t.giftName = e.target.value);
-      $('#tGiftName').onchange = () => draw();
+      attachGiftCombo($('#tGiftName'), (g) => { t.giftName = g.name; draw(); });
       $('#tGiftBrowse').onclick = () => openGiftPicker(t.giftName, (g) => { t.giftName = g ? g.name : ''; draw(); });
       $('#tMin').oninput = (e) => (t.minDiamonds = Number(e.target.value) || 0);
       $('#tRepeat').onchange = (e) => (r.repeatPerGift = e.target.checked);
@@ -498,7 +537,7 @@ const EV_ICON = { gift: '🎁', follow: '➕', like: '❤️', share: '↗️', 
 function evText(ev) {
   const n = `<b>${esc(ev.user?.nickname || ev.user?.uniqueId || 'someone')}</b>`;
   switch (ev.type) {
-    case 'gift': return `${n} sent ${ev.gift.image ? `<img class="gmini" src="${esc(ev.gift.image)}" alt="">` : ''}${esc(ev.gift.name)}${ev.gift.count > 1 ? ` ×${ev.gift.count}` : ''} <span class="muted">(${ev.gift.diamonds * ev.gift.count} 💎)</span>`;
+    case 'gift': return `${n} sent ${ev.gift.image ? `<img class="gmini" src="${esc(ev.gift.image)}" alt="">` : ''}${esc(ev.gift.name)}${ev.gift.count > 1 ? ` ×${ev.gift.count}` : ''} <span class="muted">(${(ev.gift.diamonds * ev.gift.count).toLocaleString()} <i class="coin"></i>)</span>`;
     case 'follow': return `${n} followed`;
     case 'like': return `${n} sent ${ev.likeCount} likes <span class="muted">· ${fmt(ev.totalLikes || 0)} total</span>`;
     case 'share': return `${n} shared the LIVE`;
@@ -537,9 +576,7 @@ blum.on('play-sound', ({ url, volume }) => { const au = new Audio(url); au.volum
 blum.on('gift-list', (list) => { GIFTS = list; GIFTS_REAL = true; renderGiftList(); if ($('#view-gifts').classList.contains('active')) renderGiftsView(); });
 blum.on('status', setStatus);
 
-function renderGiftList() {
-  $('#giftList').innerHTML = GIFTS.slice().sort((a, b) => a.diamonds - b.diamonds).map((g) => `<option value="${esc(g.name)}">${g.diamonds} 💎</option>`).join('');
-}
+function renderGiftList() { /* the picture dropdown reads GIFTS directly */ }
 
 // ---------- connect ----------
 let connState = 'offline';
@@ -569,6 +606,7 @@ $('#tGiftBtn').onclick = () => {
   const known = findGift(name);
   simulate({ type: 'gift', user: fakeUser(), gift: { name: known?.name || name, image: known?.image || '', diamonds: known?.diamonds ?? 1, count: Math.max(1, Number($('#tGiftCount').value) || 1) } });
 };
+attachGiftCombo($('#tGift'), () => {});
 $('#tGiftPick').onclick = () => openGiftPicker($('#tGift').value, (g) => { if (g) $('#tGift').value = g.name; });
 $('#refreshGiftsBtn').onclick = async () => {
   const b = $('#refreshGiftsBtn'); b.disabled = true; b.textContent = 'Loading…';

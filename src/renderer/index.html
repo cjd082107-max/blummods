@@ -40,7 +40,7 @@
     <div class="side-label">This stream</div>
     <div class="stats">
       <div><b id="sGifts">0</b><span>gifts</span></div>
-      <div><b id="sDiamonds">0</b><span>diamonds</span></div>
+      <div><b id="sDiamonds">0</b><span>coins</span></div>
       <div><b id="sLikes">0</b><span>likes</span></div>
       <div><b id="sFollows">0</b><span>follows</span></div>
     </div>
@@ -101,7 +101,7 @@
           <div class="test-block">
             <label>Gift</label>
             <div class="row">
-              <input id="tGift" list="giftList" value="Rose" placeholder="gift name">
+              <input id="tGift" autocomplete="off" value="Rose" placeholder="gift name">
               <button class="btn" id="tGiftPick" title="Browse gifts">🎁</button>
               <input id="tGiftCount" type="number" min="1" value="1" class="w-num" title="how many in the combo">
               <button class="btn primary" id="tGiftBtn">Send gift</button>
@@ -171,7 +171,6 @@
   <div id="pickerMount"></div>
 </div></div>
 <div id="toasts" class="toasts"></div>
-<datalist id="giftList"></datalist>
 <datalist id="keyList"></datalist>
 <script src="app.js"></script>
 </body>

@@ -1,1 +1,1 @@
-All TikTok gifts load by themselves, no need to go live
+Update banner fully clickable, gift dropdown with pictures, coins instead of diamonds

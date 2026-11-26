@@ -157,7 +157,7 @@ async function runAction(a, ev) {
       broadcast(modWss, {
         type: 'command', command: fillTemplate(a.command, ev), args: fillTemplate(a.args || '', ev),
         event: ev.type, user: ev.user?.uniqueId || '', nickname: ev.user?.nickname || '',
-        gift: ev.gift?.name || '', count: ev.gift?.count || 1, diamonds: ev.gift?.diamonds || 0, comment: ev.comment || '',
+        gift: ev.gift?.name || '', count: ev.gift?.count || 1, coins: ev.gift?.diamonds || 0, diamonds: ev.gift?.diamonds || 0, comment: ev.comment || '',
       });
       if (!mods.size) log(`Mod command "${a.command}" sent, but no game mod is connected`, 'warn');
       break;

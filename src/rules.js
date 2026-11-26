@@ -11,7 +11,8 @@ function fillTemplate(text, ev) {
     nickname: ev.user?.nickname || ev.user?.uniqueId || '',
     gift: ev.gift?.name || '',
     count: String(ev.gift?.count ?? ev.likeCount ?? 1),
-    diamonds: String(ev.gift ? ev.gift.diamonds * ev.gift.count : 0),
+    coins: String(ev.gift ? ev.gift.diamonds * ev.gift.count : 0),
+    diamonds: String(ev.gift ? ev.gift.diamonds * ev.gift.count : 0), // old name for {coins}
     comment: ev.comment || '',
     args: ev.args || '',
     likes: String(ev.totalLikes ?? ''),
