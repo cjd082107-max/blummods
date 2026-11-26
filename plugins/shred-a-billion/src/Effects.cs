@@ -20,19 +20,15 @@ namespace BlumMods.ShredABillion
         static readonly Stopwatch Clock = Stopwatch.StartNew();
         static double Now => Clock.Elapsed.TotalSeconds;
 
-        // jail (rules: Standard Events note). Solid cell, no snap-back, in the game's look, no progress while inside.
-        enum JailState { None, Settling, Active }
-        static JailState _jail = JailState.None;
-        internal static bool Jailed => _jail != JailState.None;
-        static double _jailUntil;
-        static int _settleFrames, _escapes;
-        static double _lastEscapeAt;
-        static bool _onGround;                 // true once the sky cell had to be given up for a ground one
-        static Vector3 _anchor, _cell, _prePos;
+        // jail (rules: Standard Events note). Caged right where he stands, in sight of the money but unable to
+        // touch it: solid see-through cell, no snap-back, tools frozen, nothing earned.
+        static bool _jailed;
+        internal static bool Jailed => _jailed;
+        static double _jailUntil, _lastEscapeAt;
+        static Vector3 _cell;
         static Quaternion _preRot;
         static readonly List<GameObject> Cage = new List<GameObject>();
         static Material _barMat, _trimMat;
-        const float CellHeight = 30f;          // how far above the respawn point the cell is built
         static bool _multiplierWasActive;
         static int _failures;
 
@@ -62,16 +58,16 @@ namespace BlumMods.ShredABillion
                 case "jail":
                 {
                     var seconds = Clamp(c.Num("seconds", 15), 1, 600);
-                    if (Jailed) { _jailUntil += seconds; Plugin.Say("Jail extended by " + seconds + "s" + who); break; }
-                    _prePos = player.Position; _preRot = player.Root.rotation;
-                    player.Respawn();                       // go to the spawn point first, the cell is built from there
-                    _jail = JailState.Settling; _settleFrames = 5; _escapes = 0; _onGround = false;
+                    if (_jailed) { _jailUntil += seconds; Plugin.Say("Jail extended by " + seconds + "s" + who); break; }
+                    _cell = player.Position; _preRot = player.Root.rotation;
+                    _jailed = true; _lastEscapeAt = 0;
                     _jailUntil = Now + seconds;
+                    try { BuildCell(_cell); } catch (Exception e) { Fail("building the cell", e); }
                     Plugin.Say("Jailed for " + seconds + "s" + who);
                     break;
                 }
                 case "unjail":
-                    if (Jailed) EndJail(player, "Freed from jail" + who);
+                    if (_jailed) EndJail("Freed from jail" + who);
                     break;
                 case "add_money":
                 {
@@ -123,49 +119,21 @@ namespace BlumMods.ShredABillion
 
         static void TickJail(PlayerController player)
         {
-            if (_jail == JailState.Settling)
-            {
-                if (_settleFrames-- > 0) return;            // let the respawn land first
-                _anchor = player.Position;
-                PlaceCell(player, V(_anchor.x, _anchor.y + CellHeight, _anchor.z));
-                _jail = JailState.Active;
-                return;
-            }
-            if (Now >= _jailUntil) { EndJail(player, "Jail time is over"); return; }
-
+            if (Now >= _jailUntil) { EndJail("Jail time is over"); return; }
             // Walls are solid, so he is never moved while inside. This only catches being thrown clear of the cell.
             var p = player.Position;
             float dx = p.x - _cell.x, dz = p.z - _cell.z, dy = p.y - _cell.y;
-            if (dx * dx + dz * dz > 4.5f * 4.5f || dy < -3f || dy > 9f)
+            if ((dx * dx + dz * dz > 4.5f * 4.5f || dy < -4f || dy > 9f) && Now - _lastEscapeAt >= 1.0)
             {
-                if (Now - _lastEscapeAt < 1.0) return;
-                _lastEscapeAt = Now; _escapes++;
-                if (_escapes >= 3 && !_onGround)
-                {
-                    // The game won't let him stay up there. Rebuild the cell on the ground at the spawn point.
-                    _onGround = true;
-                    Plugin.Say("The sky cell didn't hold, moving the jail to the ground");
-                    PlaceCell(player, _anchor);
-                }
-                else PutInside(player);
+                _lastEscapeAt = Now;
+                player.Teleport(V(_cell.x, _cell.y + 0.3f, _cell.z), _preRot);
             }
         }
 
-        static void PlaceCell(PlayerController player, Vector3 floorTop)
+        static void EndJail(string message)
         {
-            ClearCage();
-            _cell = floorTop;
-            try { BuildCell(floorTop); } catch (Exception e) { Fail("building the cell", e); }
-            PutInside(player);
-        }
-
-        static void PutInside(PlayerController player) => player.Teleport(V(_cell.x, _cell.y + 1.1f, _cell.z), _preRot);
-
-        static void EndJail(PlayerController player, string message)
-        {
-            _jail = JailState.None;
-            ClearCage();
-            try { player.Teleport(_prePos, _preRot); } catch (Exception e) { Fail("leaving jail", e); } // back to where he was
+            _jailed = false;
+            ClearCage();            // he is free right where he stands
             Plugin.Say(message);
         }
 

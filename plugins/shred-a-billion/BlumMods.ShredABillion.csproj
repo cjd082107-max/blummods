@@ -2,7 +2,7 @@
   <PropertyGroup>
     <AssemblyName>BlumMods.ShredABillion</AssemblyName>
     <RootNamespace>BlumMods.ShredABillion</RootNamespace>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <DebugType>none</DebugType>
@@ -15,5 +15,6 @@
     <ProjectReference Include="stubs/Game.Player/Game.Player.csproj" Private="false" />
     <ProjectReference Include="stubs/Game.Progression/Game.Progression.csproj" Private="false" />
     <ProjectReference Include="stubs/Game.Stream/Game.Stream.csproj" Private="false" />
+    <ProjectReference Include="stubs/Game.Tools/Game.Tools.csproj" Private="false" />
   </ItemGroup>
 </Project>

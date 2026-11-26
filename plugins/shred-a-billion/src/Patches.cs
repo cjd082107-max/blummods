@@ -2,6 +2,7 @@ using System;
 using Game.Core;
 using Game.Player;
 using Game.Progression;
+using Game.Tools;
 using HarmonyLib;
 
 namespace BlumMods.ShredABillion
@@ -34,6 +35,13 @@ namespace BlumMods.ShredABillion
                 }
                 catch (Exception e) { Effects.Fail("money hook", e); }
             }
+        }
+
+        // While jailed the tools don't run at all: the money is in reach of his eyes, not his hands.
+        [HarmonyPatch(typeof(ToolService), nameof(ToolService.Update))]
+        internal static class ToolsUpdate
+        {
+            static bool Prefix() => !Effects.Jailed;
         }
 
         [HarmonyPatch(typeof(EconomyService), nameof(EconomyService.Awake))]

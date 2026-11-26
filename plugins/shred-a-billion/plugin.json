@@ -5,7 +5,7 @@
     "ShredABillion.exe"
   ],
   "file": "BlumMods.ShredABillion.dll",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "actions": [
     {
       "id": "jail",
@@ -22,7 +22,7 @@
       ],
       "category": "Player",
       "icon": "🔒",
-      "desc": "Locks the streamer in a solid cell high above the spawn point for the time you set. They can walk around inside and bump into the bars, but can't get out or earn anything until it ends, then they are put back where they were. More jail gifts add more time."
+      "desc": "Drops a solid cage around the streamer right where they stand. They can see the money through the bars and walk into them, but their tools stop working and they earn nothing until the time is up. More jail gifts add more time."
     },
     {
       "id": "unjail",
@@ -30,7 +30,7 @@
       "params": [],
       "category": "Player",
       "icon": "🔓",
-      "desc": "Lets the streamer out of jail early and puts them back where they were."
+      "desc": "Lets the streamer out of jail early. The cage disappears and they carry on where they are."
     },
     {
       "id": "add_money",
