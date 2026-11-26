@@ -9,6 +9,7 @@ const { RuleEngine, fillTemplate } = require('./rules');
 const { KeySender, KEY_CHOICES } = require('./keys');
 const { Updater } = require('./updater');
 const { toTikFinity } = require('./feed');
+const modloader = require('./modloader');
 
 app.setName('BlumMods');
 if (process.platform === 'win32') app.setAppUserModelId('com.blummods.app');
@@ -405,6 +406,24 @@ async function installUpdate() {
 
 // ---------- IPC ----------
 function wireIpc() {
+  const modStatuses = () => Object.fromEntries(data.games.map((g) => [g.id, modloader.status(g)]));
+  ipcMain.handle('mod-status', () => modStatuses());
+  ipcMain.handle('mod-install', async (_e, id) => {
+    const g = data.games.find((x) => x.id === id);
+    if (!g) return { ok: false, error: 'Game not found' };
+    try {
+      log(`Installing the mod loader for ${g.name}…`);
+      await modloader.install(g, (u) => net.fetch(u), (pct) => send('mod-progress', { id, pct }));
+      log(`Mod loader installed for ${g.name}. Launch the game once and let it reach the main menu to finish setup.`, 'good');
+      return { ok: true, statuses: modStatuses() };
+    } catch (e) { log(`Mod loader install failed: ${e.message}`, 'bad'); return { ok: false, error: String(e.message || e), statuses: modStatuses() }; }
+  });
+  ipcMain.handle('mod-remove', (_e, id) => {
+    const g = data.games.find((x) => x.id === id);
+    if (!g) return { ok: false };
+    try { modloader.uninstall(g); log(`Mod loader removed from ${g.name}`); return { ok: true, statuses: modStatuses() }; }
+    catch (e) { return { ok: false, error: /EPERM|EBUSY|EACCES/.test(e.code || '') ? 'Close the game first.' : String(e.message || e), statuses: modStatuses() }; }
+  });
   ipcMain.handle('update-check', () => checkForUpdate(true));
   ipcMain.handle('update-install', () => installUpdate());
   ipcMain.handle('get-init', () => ({ feed: { on: !!feedWss, port: Number(data.settings.feedPort) || 21213, clients: feedWss ? feedWss.clients.size : 0 }, update: updateState, gifts: giftCatalog, data, status, stats, keyChoices: KEY_CHOICES, mods: [...mods.values()], userData: app.getPath('userData'), version: app.getVersion() }));

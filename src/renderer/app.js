@@ -167,6 +167,19 @@ function coverHTML(g, cls = '') {
   return `<div class="cover ${cls}" ${bg}>${inner}</div>`;
 }
 
+// ---------- mod loader status ----------
+let MODS = {};
+async function refreshMods() { try { MODS = await blum.modStatus(); } catch { /* keep the last known */ } }
+function modRowHTML(g) {
+  const m = MODS[g.id];
+  if (!m || m.state === 'unsupported') return '<span class="mod-note">Keys and game feed only</span>';
+  if (m.state === 'none') return '<button class="btn small" data-a="modsetup">🧩 Set up mods</button>';
+  if (m.state === 'installed') return '<span class="mod-note warn">Mod loader installed. Launch the game once to finish.</span>';
+  return `<span class="mod-note ok">Mod loader ready${m.plugin ? ' · BlumMods plugin ✓' : ''}</span>`;
+}
+blum.on('mod-progress', ({ id, pct }) => { const b = document.querySelector(`[data-mod="${id}"] [data-a=modsetup]`); if (b) b.textContent = `Downloading… ${pct}%`; });
+window.addEventListener('focus', async () => { await refreshMods(); if ($('#view-games').classList.contains('active') && $('#modal').classList.contains('hidden')) renderGames(); });
+
 // ---------- games ----------
 function renderGames() {
   const grid = $('#gameGrid');
@@ -185,9 +198,9 @@ function renderGames() {
         <div class="badges">
           <span class="badge">${esc(g.engine || 'Game')}</span>
           ${modText ? `<span class="badge ${modClass}">${modText}</span>` : ''}
-          ${g.bepinex ? '<span class="badge bep">BepInEx ✓</span>' : ''}
           <span class="badge">${ruleCount} trigger${ruleCount === 1 ? '' : 's'}</span>
         </div>
+        <div class="mod-row" data-mod="${g.id}">${modRowHTML(g)}</div>
         <div class="game-actions">
           <button class="btn primary small" data-a="launch">▶ Launch</button>
           <button class="btn small" data-a="rules" title="Edit this game's triggers">⚡</button>
@@ -195,6 +208,15 @@ function renderGames() {
         </div>
       </div>`;
     if (active) card.querySelector('.cover').insertAdjacentHTML('beforeend', '<span class="tag">ACTIVE</span>');
+    const setup = card.querySelector('[data-a=modsetup]');
+    if (setup) setup.onclick = async () => {
+      if (!confirm(`Install the BepInEx mod loader into ${g.name}'s folder?\n\nIt downloads about 40 MB from the official BepInEx site and only adds files to the game folder. You can remove it again from the game's edit screen.`)) return;
+      setup.disabled = true; setup.textContent = 'Downloading… 0%';
+      const r = await blum.modInstall(g.id);
+      if (r.statuses) MODS = r.statuses;
+      if (r.ok) toast('Mod loader installed. Launch the game once to finish setup.', 'var(--green)'); else toast(`Couldn't install: ${r.error}`, 'var(--red)');
+      renderGames();
+    };
     card.querySelector('[data-a=launch]').onclick = async () => { await blum.launchGame(g.id); D.activeGameId = g.id; renderAll(); };
     card.querySelector('[data-a=rules]').onclick = () => { D.activeGameId = g.id; persist(); renderAll(); $('#ruleScope').value = g.id; showView('rules'); };
     card.querySelector('[data-a=edit]').onclick = () => openGameModal(g);
@@ -232,7 +254,7 @@ function openGameModal(g) {
       <div class="field"><label>Launch options <span class="muted">(optional)</span></label><input id="gArgs" value="${esc(draft.launchArgs || '')}" placeholder="e.g. -windowed"></div>
       <p class="hint">Detected: <b>${esc(draft.engine || 'Unknown')}</b>${draft.moddable === 'easy' ? ' — this one is easy to mod with BepInEx.' : draft.moddable === 'harder' ? ' — IL2CPP build, needs BepInEx 6 (still doable).' : draft.moddable === 'keys only' ? ' — not Unity, so key-press triggers only.' : ''}</p>
       <div class="modal-foot">
-        <div>${isNew ? '' : '<button class="btn danger" id="gDelete">Remove game</button>'}</div>
+        <div class="row">${isNew ? '' : '<button class="btn danger" id="gDelete">Remove game</button>'}${!isNew && ['installed', 'ready'].includes(MODS[g.id]?.state) ? '<button class="btn" id="gUnmod">Remove mod loader</button>' : ''}</div>
         <div class="row"><button class="btn" id="gCancel">Cancel</button><button class="btn primary" id="gSave">${isNew ? 'Add to library' : 'Save'}</button></div>
       </div>`;
     $('#gName').oninput = (e) => (draft.name = e.target.value);
@@ -249,7 +271,13 @@ function openGameModal(g) {
         if (!D.activeGameId) D.activeGameId = draft.id;
       } else Object.assign(D.games.find((x) => x.id === g.id), draft);
       persist(); closeModal(); renderAll();
-      if (isNew) toast(`${draft.name} added`);
+      if (isNew) { toast(`${draft.name} added`); setTimeout(async () => { await refreshMods(); renderGames(); }, 400); }
+    };
+    if ($('#gUnmod')) $('#gUnmod').onclick = async () => {
+      if (!confirm(`Remove the mod loader and any mods from ${g.name}? The game itself is not touched.`)) return;
+      const r = await blum.modRemove(g.id);
+      if (r.statuses) MODS = r.statuses;
+      if (r.ok) { toast('Mod loader removed'); closeModal(); renderAll(); } else toast(`Couldn't remove it: ${r.error || 'unknown error'}`, 'var(--red)');
     };
     if ($('#gDelete')) $('#gDelete').onclick = () => {
       if (!confirm(`Remove ${g.name} from BlumMods? Its triggers will be deleted too. (The game itself is not touched.)`)) return;
@@ -705,6 +733,7 @@ function renderAll() { renderGames(); renderActiveGame(); renderSettings(); if (
   $('#dataFolderBtn').onclick = () => blum.openFolder(init.userData);
   $('#versionInfo').textContent = `BlumMods v${init.version} — your games, triggers and settings are saved automatically.`;
   renderGiftList();
+  await refreshMods();
   renderAll();
   setStatus(init.status);
   showFeed(init.feed);

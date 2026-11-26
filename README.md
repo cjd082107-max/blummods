@@ -23,6 +23,10 @@ The game you launch from BlumMods becomes the **active game**, and its triggers 
 
 Some games have TikTok LIVE support built in and look for TikFinity on your PC. BlumMods can stand in for TikFinity: keep **Settings → Game feed** on, close TikFinity, and press the game's own connect button. The game then gets your gifts, likes, follows, shares and chat straight from BlumMods, including the fake ones from **Live & Test**. SHRED A BILLION works this way (in the game: CONNECT, then set up its GIFT TABLE).
 
+## Mods
+
+On a Unity game's card, **Set up mods** installs the BepInEx mod loader into that game's folder (about 40 MB from the official BepInEx site). Launch the game once afterwards and let it reach the main menu; the first launch can take a few minutes while the loader prepares the game. To undo it, open the game's edit screen and click **Remove mod loader**. Only use mods in solo play.
+
 ## Updates
 
 BlumMods checks for a new version when it opens. If there is one, a banner drops down from the top: click **Update now** and it downloads, installs and restarts. Your games and triggers are kept. You can also check by hand in **Settings → Check for updates**. Keep the BlumMods folder somewhere normal like `C:\BlumMods` (not Program Files), so the app is allowed to update itself.

@@ -1,1 +1,1 @@
-Game feed: games with built-in TikFinity support (like SHRED A BILLION) now connect to BlumMods
+Set up mods: one-click mod loader install for Unity games
