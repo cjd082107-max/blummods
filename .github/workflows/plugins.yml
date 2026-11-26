@@ -1,0 +1,30 @@
+# Builds the in-game plugins and publishes them to the rolling "plugins" release that the BlumMods app reads.
+name: Plugins
+on:
+  push:
+    branches: [main]
+    paths: ['plugins/**', 'build/plugins-manifest.js', '.github/workflows/plugins.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build plugins
+        run: |
+          for proj in plugins/*/*.csproj; do dotnet build "$proj" -c Release --nologo; done
+      - name: Make sure no game files are bundled
+        run: |
+          node build/plugins-manifest.js
+          ls -la dist/plugins
+      - name: Publish
+        run: |
+          gh release view plugins >/dev/null 2>&1 || gh release create plugins --prerelease --target "$GITHUB_SHA" --title "Game plugins" --notes "In-game plugins for BlumMods. The app downloads these by itself."
+          gh release upload plugins dist/plugins/* --clobber

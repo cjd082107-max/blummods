@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>BlumMods.ShredABillion</AssemblyName>
+    <RootNamespace>BlumMods.ShredABillion</RootNamespace>
+    <Version>0.1.0</Version>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/*.cs" />
+    <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.*" IncludeAssets="compile" />
+    <ProjectReference Include="stubs/UnityEngine.CoreModule/UnityEngine.CoreModule.csproj" Private="false" />
+    <ProjectReference Include="stubs/Game.Core/Game.Core.csproj" Private="false" />
+    <ProjectReference Include="stubs/Game.Player/Game.Player.csproj" Private="false" />
+    <ProjectReference Include="stubs/Game.Progression/Game.Progression.csproj" Private="false" />
+    <ProjectReference Include="stubs/Game.Stream/Game.Stream.csproj" Private="false" />
+  </ItemGroup>
+</Project>

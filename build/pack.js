@@ -7,7 +7,7 @@ const fs = require('fs'); const path = require('path');
   const [out] = await packager({
     dir: root, out: path.join(root, 'dist'), name: 'BlumMods', executableName: 'BlumMods',
     platform: 'win32', arch: 'x64', overwrite: true, asar: false, prune: true,
-    ignore: [/^\/dist($|\/)/, /^\/test($|\/)/, /^\/build\/pack\.js$/, /^\/README\.md$/, /^\/mod-template($|\/)/],
+    ignore: [/^\/dist($|\/)/, /^\/test($|\/)/, /^\/build\/pack\.js$/, /^\/README\.md$/, /^\/mod-template($|\/)/, /^\/plugins($|\/)/, /^\/\.github($|\/)/],
     appCopyright: 'Carter', win32metadata: { CompanyName: 'BlumMods', ProductName: 'BlumMods', FileDescription: 'BlumMods' },
   });
   const exePath = path.join(out, 'BlumMods.exe');
