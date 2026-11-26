@@ -1,24 +1,35 @@
-# Push a tag like v1.3.0 and this builds BlumMods and publishes the release the app's updater looks for.
+# Publishes a release whenever main has a package.json version that hasn't been released yet.
+# To ship an update: bump "version" in package.json, edit RELEASE_NOTES.md, push to main.
 name: Release
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+      - name: Is this version already released?
+        id: v
+        run: |
+          TAG="v$(node -p "require('./package.json').version")"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then echo "new=false" >> "$GITHUB_OUTPUT"; else echo "new=true" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/setup-node@v4
+        if: steps.v.outputs.new == 'true'
         with:
           node-version: 22
-      - name: Tag must match package.json version
-        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
-      - run: npm ci
-      - run: npm test
-      - run: node build/release.js
+      - if: steps.v.outputs.new == 'true'
+        run: npm ci
+      - if: steps.v.outputs.new == 'true'
+        run: npm test
+      - if: steps.v.outputs.new == 'true'
+        run: node build/release.js
       - name: Publish
-        run: gh release create "$GITHUB_REF_NAME" dist/release/* --title "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
-        env:
-          GH_TOKEN: ${{ github.token }}
+        if: steps.v.outputs.new == 'true'
+        run: gh release create "${{ steps.v.outputs.tag }}" dist/release/* --target "$GITHUB_SHA" --title "${{ steps.v.outputs.tag }}" --notes-file RELEASE_NOTES.md
