@@ -37,7 +37,7 @@ const subdirs = (dir) => { try { return fs.readdirSync(dir, { withFileTypes: tru
 
 // Which plugin games should be added now: installed, not already in the list, and not added (then removed) before.
 function gamesToAdd(manifestGames, haveGames, alreadyAutoAdded, libraries) {
-  const have = new Set(haveGames.map((g) => path.basename(g.exe || '').toLowerCase()));
+  const have = new Set(haveGames.map((g) => String(g.exe || '').split(/[\\/]/).pop().toLowerCase())); // either slash, on any OS
   const done = new Set(alreadyAutoAdded.map((e) => String(e).toLowerCase()));
   const out = [];
   for (const entry of manifestGames) {
