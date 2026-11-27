@@ -1,0 +1,142 @@
+{
+  "id": "megastore-tidy-up",
+  "name": "Megastore: Tidy Up Together",
+  "exe": [
+    "Megastore Tidy Up Together.exe"
+  ],
+  "file": "BlumMods.MegastoreTidyUp.dll",
+  "version": "0.1.0",
+  "actions": [
+    {
+      "id": "jail",
+      "label": "Jail the player",
+      "category": "Player",
+      "icon": "🔒",
+      "desc": "Locks the streamer in a steel-barred jail cell right where they stand. They can see the store through the bars but can't grab, place or use skills until the time is up. More jail gifts add more time.",
+      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 15, "min": 1, "max": 600, "step": 1 }]
+    },
+    {
+      "id": "unjail",
+      "label": "Free the player from jail",
+      "category": "Player",
+      "icon": "🔓",
+      "desc": "Lets the streamer out of jail early. The cell disappears and they carry on where they are.",
+      "params": []
+    },
+    {
+      "id": "speed_boost",
+      "label": "Speed boost",
+      "category": "Helps",
+      "icon": "⚡",
+      "desc": "The streamer walks and runs faster for a while.",
+      "params": [
+        { "id": "multiplier", "name": "Speed", "label": "x", "default": 2, "min": 1.1, "max": 5, "step": 0.1 },
+        { "id": "seconds", "name": "Time", "label": "seconds", "default": 20, "min": 1, "max": 600, "step": 1 }
+      ]
+    },
+    {
+      "id": "super_jump",
+      "label": "Super jump",
+      "category": "Helps",
+      "icon": "🦘",
+      "desc": "The streamer jumps more than twice as high for a while.",
+      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 20, "min": 1, "max": 600, "step": 1 }]
+    },
+    {
+      "id": "magnet",
+      "label": "Magnet",
+      "category": "Helps",
+      "icon": "🧲",
+      "desc": "Turns on the game's own Magnet skill for free: nearby products get pulled toward the streamer.",
+      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 10, "min": 1, "max": 120, "step": 1 }]
+    },
+    {
+      "id": "shelf_glow",
+      "label": "Shelf glow",
+      "category": "Helps",
+      "icon": "✨",
+      "desc": "Turns on the game's own shelf glow skill for free: the right shelf for what the streamer is holding lights up.",
+      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 15, "min": 1, "max": 120, "step": 1 }]
+    },
+    {
+      "id": "give_xp",
+      "label": "Give XP",
+      "category": "Helps",
+      "icon": "⭐",
+      "desc": "Gives the streamer this much skill XP, as if they had finished shelves.",
+      "params": [{ "id": "amount", "name": "Amount", "label": "XP", "default": 100, "min": 1, "max": 100000, "step": 10 }]
+    },
+    {
+      "id": "freeze",
+      "label": "Freeze",
+      "category": "Hurts",
+      "icon": "🧊",
+      "desc": "The streamer can't move for a few seconds. They can still look around.",
+      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 5, "min": 1, "max": 120, "step": 1 }]
+    },
+    {
+      "id": "slow_walk",
+      "label": "Slow walk",
+      "category": "Hurts",
+      "icon": "🐌",
+      "desc": "The streamer moves at a crawl (0.3x speed) for a while.",
+      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 15, "min": 1, "max": 600, "step": 1 }]
+    },
+    {
+      "id": "product_explosion",
+      "label": "Product explosion",
+      "category": "Hurts",
+      "icon": "💥",
+      "desc": "Every loose item within a few metres of the streamer goes flying. Items already on shelves are never touched.",
+      "params": [{ "id": "power", "name": "Power", "label": "power", "default": 1, "min": 0.1, "max": 5, "step": 0.1 }]
+    },
+    {
+      "id": "lights_out",
+      "label": "Lights out",
+      "category": "Hurts",
+      "icon": "🌑",
+      "desc": "The whole store goes dark for a while.",
+      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 15, "min": 1, "max": 300, "step": 1 }]
+    },
+    {
+      "id": "launch",
+      "label": "Launch the player",
+      "category": "Funny",
+      "icon": "🚀",
+      "desc": "Throws the streamer up into the air.",
+      "params": [{ "id": "power", "name": "Power", "label": "power", "default": 1, "min": 0.1, "max": 5, "step": 0.1 }]
+    },
+    {
+      "id": "moon_gravity",
+      "label": "Moon gravity",
+      "category": "Funny",
+      "icon": "🌙",
+      "desc": "Everything gets floaty for a while: the streamer and every falling product.",
+      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 20, "min": 1, "max": 600, "step": 1 }]
+    },
+    {
+      "id": "product_rain",
+      "label": "Product rain",
+      "category": "Funny",
+      "icon": "🌧️",
+      "desc": "Loose items from around the store drop out of the sky onto the streamer. Shelved items are never taken.",
+      "params": [{ "id": "count", "name": "Items", "label": "items", "default": 25, "min": 1, "max": 150, "step": 1 }]
+    },
+    {
+      "id": "drunk_camera",
+      "label": "Dizzy camera",
+      "category": "Funny",
+      "icon": "🥴",
+      "desc": "The streamer's view sways and wobbles for a while.",
+      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 15, "min": 1, "max": 300, "step": 1 }]
+    },
+    {
+      "id": "barrel_roll",
+      "label": "Barrel roll",
+      "category": "Funny",
+      "icon": "🌀",
+      "desc": "The streamer's view spins all the way around.",
+      "params": [{ "id": "rolls", "name": "Rolls", "label": "rolls", "default": 2, "min": 1, "max": 10, "step": 1 }]
+    }
+  ]
+}

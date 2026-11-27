@@ -7,7 +7,10 @@ for (const dir of fs.readdirSync(path.join(root, 'plugins'), { withFileTypes: tr
   const metaFile = path.join(root, 'plugins', dir.name, 'plugin.json');
   if (!fs.existsSync(metaFile)) continue;
   const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
-  const dll = path.join(root, 'plugins', dir.name, 'bin', 'Release', 'net6.0', meta.file);
+  // IL2CPP plugins build for net6.0, Mono ones for netstandard2.1: take whichever folder has the DLL.
+  const rel = path.join(root, 'plugins', dir.name, 'bin', 'Release');
+  const fw = fs.existsSync(rel) ? fs.readdirSync(rel).find((f) => fs.existsSync(path.join(rel, f, meta.file))) : null;
+  const dll = path.join(rel, fw || 'net6.0', meta.file);
   if (!fs.existsSync(dll)) throw new Error(`Missing build output: ${dll}`);
   const buf = fs.readFileSync(dll);
   fs.writeFileSync(path.join(out, meta.file), buf);

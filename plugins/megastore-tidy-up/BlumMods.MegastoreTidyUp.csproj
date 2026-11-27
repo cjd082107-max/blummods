@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Mono game (BepInEx 5). Game code is reached by reflection, so no game files are needed to build. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>BlumMods.MegastoreTidyUp</AssemblyName>
+    <RootNamespace>BlumMods.MegastoreTidyUp</RootNamespace>
+    <Version>0.1.0</Version>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/*.cs" />
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" IncludeAssets="compile" />
+    <PackageReference Include="UnityEngine.Modules" Version="6000.0.73" IncludeAssets="compile" />
+  </ItemGroup>
+</Project>
