@@ -107,14 +107,6 @@ function openGiftPicker(selected, onPick) {
   $('#pickerMount .gq').focus();
 }
 
-function renderGiftsView() {
-  $('#giftsNotice').innerHTML = GIFTS_REAL ? '' : '<div class="notice">This is a short starter list without pictures. BlumMods loads the full list from TikTok by itself when it opens (no need to be live). If it has not appeared, click <b>Load from TikTok</b>.</div>';
-  mountGiftGrid($('#giftsMount'), {
-    showCounts: true,
-    onPick: (g) => openRuleModal(null, { trigger: { type: 'gift', giftName: g.name, minDiamonds: 0, likeEvery: 100, command: '!jump' } }),
-  });
-}
-
 const TRIGGERS = {
   gift: { e: '🎁', label: 'Gift' },
   follow: { e: '➕', label: 'Follow' },
@@ -142,8 +134,7 @@ function toast(text, color) {
 function showView(v) {
   $$('.nav').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
   $$('.view').forEach((s) => s.classList.toggle('active', s.id === 'view-' + v));
-  if (v === 'rules') renderRules();
-  if (v === 'gifts') renderGiftsView();
+  if (v === 'keys') renderKeys();
 }
 $$('.nav').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
 
@@ -219,7 +210,7 @@ function renderGames() {
         <div class="mod-row" data-mod="${g.id}">${modRowHTML(g)}</div>
         <div class="game-actions">
           <button class="btn primary small" data-a="launch">▶ Launch</button>
-          <button class="btn small" data-a="rules" title="Edit this game's triggers">⚡</button>
+          <button class="btn small" data-a="rules" title="This game's triggers">⚡ Triggers</button>
           <button class="btn small" data-a="edit" title="Edit game">✎</button>
         </div>
       </div>`;
@@ -234,7 +225,7 @@ function renderGames() {
       renderGames();
     };
     card.querySelector('[data-a=launch]').onclick = async () => { await blum.launchGame(g.id); D.activeGameId = g.id; renderAll(); };
-    card.querySelector('[data-a=rules]').onclick = () => { D.activeGameId = g.id; persist(); renderAll(); $('#ruleScope').value = g.id; showView('rules'); };
+    card.querySelector('[data-a=rules]').onclick = () => openGamePanel(g.id);
     card.querySelector('[data-a=edit]').onclick = () => openGameModal(g);
     card.querySelector('.cover').onclick = () => { D.activeGameId = g.id; persist(); renderAll(); toast(`${g.name} is now the active game`); };
     card.querySelector('.cover').style.cursor = 'pointer';
@@ -310,34 +301,26 @@ function openGameModal(g) {
 function renderActiveGame() {
   const g = D.games.find((x) => x.id === D.activeGameId);
   const el = $('#activeGame');
-  if (!g) { el.innerHTML = '<span class="none">No game selected — only "All games" triggers are on.</span>'; return; }
+  if (!g) { el.innerHTML = '<span class="none">No game selected. Only key presses can fire.</span>'; return; }
   const img = g.cover || g.icon;
-  el.innerHTML = `${img ? `<img src="${esc(img)}">` : `<div class="ph" style="background:#8a5cff55"></div>`}<div><div class="nm">${esc(g.name)}</div><div class="muted" style="font-size:11.5px">${D.rules.filter((r) => r.gameId === g.id && r.enabled).length} triggers on</div></div>`;
+  el.innerHTML = `${img ? `<img src="${esc(img)}">` : `<div class="ph" style="background:#8a5cff55"></div>`}<div><div class="nm">${esc(g.name)}</div><div class="muted" style="font-size:11.5px">${((n) => `${n} trigger${n === 1 ? '' : 's'} on`)(D.rules.filter((r) => r.gameId === g.id && r.enabled).length)}</div></div>`;
 }
 
-// ---------- rules ----------
-function scopeOptions(sel) {
-  return `<option value="">All games</option>` + D.games.map((g) => `<option value="${g.id}" ${g.id === sel ? 'selected' : ''}>${esc(g.name)}</option>`).join('');
-}
-function renderScope() {
-  const s = $('#ruleScope');
-  const cur = s.value || D.activeGameId || '';
-  s.innerHTML = `<option value="*">Everything</option>` + scopeOptions(cur);
-  s.value = D.games.some((g) => g.id === cur) || cur === '' || cur === '*' ? cur : '*';
-}
-$('#ruleScope').onchange = renderRules;
-$('#addRuleBtn').onclick = () => openRuleModal(null);
 $('#addGameBtn').onclick = () => addGame();
 
-// ---------- events a trigger can fire (game actions from the plugin + built-ins) ----------
+// ---------- what a trigger can do ----------
+// A game's triggers can only fire that game's own events (from its BlumMods mod).
+// Key-press triggers (gameId null) live in their own section and work in every game.
 const BUILTIN_EVENTS = [
-  { kind: 'key', label: 'Press a key', category: 'Controls', icon: '⌨️', desc: 'Presses a key or mouse button in the game, as if you pressed it yourself. Works in any game, as long as the game window is in front.' },
-  { kind: 'alert', label: 'Show an alert', category: 'Stream', icon: '💬', desc: 'Pops a message up in BlumMods and on your stream overlay. Use {nickname}, {gift}, {coins}, {count}, {comment} or {likes} in the text.' },
-  { kind: 'wait', label: 'Wait', category: 'Timing', icon: '⏱️', desc: 'Pauses before the next step runs.' },
-  { kind: 'mod', label: 'Custom mod command', category: 'Advanced', icon: '🧩', desc: 'Sends a raw command to a game mod. Only needed for mods that are not in the list above.' },
+  { kind: 'key', label: 'Press a key', category: 'Keys', icon: '⌨️', desc: 'Presses a key or mouse button, as if you pressed it yourself. The game window has to be in front.' },
+  { kind: 'wait', label: 'Wait', category: 'Timing', icon: '⏱️', desc: 'Pauses before the next key press, for combos like "hold W, wait, press Space".' },
+  // Still understood by the app so old setups keep working, but not offered any more.
+  { kind: 'alert', label: 'Show an alert', category: 'Stream', icon: '💬', desc: 'Pops a message up on your stream overlay.', hidden: true },
+  { kind: 'mod', label: 'Custom mod command', category: 'Advanced', icon: '🧩', desc: 'Sends a raw command to a game mod.', hidden: true },
 ];
 function eventCatalog(gameId) {
-  return [...gameActions(gameId).map((a) => ({ kind: 'game', action: a.id, label: a.label, category: a.category || 'Game', icon: a.icon || '⚡', desc: a.desc || '', params: a.params || [] })), ...BUILTIN_EVENTS];
+  if (!gameId) return BUILTIN_EVENTS.filter((e) => !e.hidden);
+  return gameActions(gameId).map((a) => ({ kind: 'game', action: a.id, label: a.label, category: a.category || 'Game', icon: a.icon || '⚡', desc: a.desc || '', params: a.params || [] }));
 }
 const sameEvent = (ev, a) => ev.kind === a.kind && (ev.kind !== 'game' || ev.action === a.action);
 function eventFor(a, gameId) {
@@ -377,28 +360,22 @@ function stepChip(a, gameId, cls = '') { const ev = eventFor(a, gameId); return 
 const soundName = (a) => (a.file || '').split(/[\\/]/).pop().replace(/^\d+-/, '') || 'no file yet';
 const soundChip = (a, cls = '') => (a ? chipHTML('<span class="gimg ph">🎵</span>', esc(soundName(a)), `Volume ${esc(a.volume ?? 80)}%`, cls) : `<span class="chip2 dashed ${cls}"><span class="c-tx"><b>＋ Add sound</b></span></span>`);
 
-function renderRules() {
-  renderScope();
-  const scope = $('#ruleScope').value;
-  const list = $('#ruleList');
-  const rules = D.rules.filter((r) => scope === '*' || (r.gameId || '') === scope);
-  if (!rules.length) {
-    const g = D.games.find((x) => x.id === scope);
-    list.innerHTML = `<div class="empty"><h3>No triggers ${g ? 'for ' + esc(g.name) : 'here'} yet</h3>
-      <p>A trigger is “when <b>this</b> happens on my LIVE → do <b>that</b> in my game”.</p>
-      <div class="row"><button class="btn primary" id="emptyNew">+ New trigger</button><button class="btn" id="emptyStarter">Add example triggers</button></div></div>`;
-    $('#emptyNew').onclick = () => openRuleModal(null);
-    $('#emptyStarter').onclick = () => addStarterRules(scope === '*' ? D.activeGameId : scope || null);
-    return;
-  }
+// Redraw whatever trigger lists are on screen after a change.
+function refreshTriggerViews() {
+  if (PANEL_GAME && !$('#gamePanel').classList.contains('hidden')) drawGamePanel();
+  if ($('#view-keys').classList.contains('active')) renderKeys();
+  renderGames(); renderActiveGame();
+}
+
+// One list of trigger rows (used by a game's panel and by Key presses).
+function renderRuleList(list, rules, gameId) {
   list.innerHTML = `<div class="rule-head"><span>When viewers</span><span></span><span>This happens</span><span>Sound</span><span>On</span><span>Test</span><span></span><span></span></div>`;
   for (const r of rules) {
-    const g = D.games.find((x) => x.id === r.gameId);
     const steps = (r.actions || []).filter((a) => a.kind !== 'sound');
     const sound = (r.actions || []).find((a) => a.kind === 'sound');
     const el = document.createElement('div');
     el.className = 'rule2' + (r.enabled ? '' : ' off');
-    el.title = `${r.name}${scope === '*' ? ' · ' + (g ? g.name : 'All games') : ''}${r.cooldownSec ? ` · ${r.cooldownSec}s cooldown` : ''}`;
+    el.title = `${r.name}${r.cooldownSec ? ` · ${r.cooldownSec}s cooldown` : ''}`;
     el.innerHTML = `
       <button class="cell" data-a="when">${whenChip(r.trigger)}</button>
       <span class="arrow2">→</span>
@@ -408,44 +385,91 @@ function renderRules() {
       <button class="btn small" data-a="test">▶ Test</button>
       <button class="btn small ghost" data-a="dup" title="Duplicate">⧉</button>
       <button class="btn small ghost" data-a="del" title="Delete">🗑</button>`;
-    el.querySelector('input').onchange = (e) => { r.enabled = e.target.checked; persist(); renderRules(); renderActiveGame(); };
-    el.querySelector('[data-a=when]').onclick = () => openRuleModal(r, null, 'when');
-    el.querySelector('[data-a=then]').onclick = () => openRuleModal(r, null, 0);
-    el.querySelector('[data-a=sound]').onclick = () => openRuleModal(r, null, 'sound');
+    el.querySelector('input').onchange = (e) => { r.enabled = e.target.checked; persist(); refreshTriggerViews(); };
+    el.querySelector('[data-a=when]').onclick = () => openRuleModal(r, gameId, 'when');
+    el.querySelector('[data-a=then]').onclick = () => openRuleModal(r, gameId, 0);
+    el.querySelector('[data-a=sound]').onclick = () => openRuleModal(r, gameId, 'sound');
     el.querySelector('[data-a=test]').onclick = () => testActions(r.name, r.actions);
-    el.querySelector('[data-a=dup]').onclick = () => { D.rules.splice(D.rules.indexOf(r) + 1, 0, { ...structuredClone(r), id: uid(), name: r.name + ' (copy)' }); persist(); renderRules(); };
+    el.querySelector('[data-a=dup]').onclick = () => { D.rules.splice(D.rules.indexOf(r) + 1, 0, { ...structuredClone(r), id: uid(), name: r.name + ' (copy)' }); persist(); refreshTriggerViews(); };
     el.querySelector('[data-a=del]').onclick = () => {
       if (!confirm(`Delete the trigger "${r.name}"?`)) return;
-      D.rules = D.rules.filter((x) => x.id !== r.id); persist(); renderRules(); renderGames(); renderActiveGame();
+      D.rules = D.rules.filter((x) => x.id !== r.id); persist(); refreshTriggerViews();
     };
     list.appendChild(el);
   }
 }
 
-function addStarterRules(gameId) {
-  const mk = (name, trigger, actions, extra = {}) => ({ id: uid(), gameId, name, enabled: true, trigger, actions, cooldownSec: 0, repeatPerGift: false, ...extra });
-  D.rules.push(
-    mk('Rose = jump', { type: 'gift', giftName: 'Rose' }, [{ kind: 'key', key: 'Space', holdMs: 80, repeat: 1 }, { kind: 'alert', text: '{nickname} made me jump! 🌹', color: '#fe2c55', seconds: 3 }], { repeatPerGift: true }),
-    mk('Big gift = chaos', { type: 'gift', giftName: '', minDiamonds: 100 }, [{ kind: 'mod', command: 'spawn_enemy', args: '{nickname}' }, { kind: 'alert', text: '{nickname} sent {gift}! 😈', color: '#8a5cff', seconds: 5 }]),
-    mk('New follower', { type: 'follow' }, [{ kind: 'alert', text: 'Thanks for the follow, {nickname}!', color: '#25f4ee', seconds: 4 }]),
-    mk('Like goal', { type: 'like', likeEvery: 500 }, [{ kind: 'alert', text: '{likes} likes! 🎉', color: '#ffb547', seconds: 4 }]),
-    mk('!jump in chat', { type: 'chat', command: '!jump' }, [{ kind: 'key', key: 'Space', holdMs: 80, repeat: 1 }], { cooldownSec: 5 }),
-  );
-  persist(); renderRules(); renderGames(); renderActiveGame();
-  toast('Added 5 example triggers — edit them to fit your game');
+// ---------- a game's own triggers: a big panel inside the app ----------
+let PANEL_GAME = null;
+function openGamePanel(gameId) {
+  PANEL_GAME = gameId;
+  drawGamePanel();
+  $('#gamePanel').classList.remove('hidden');
+}
+function closeGamePanel() { PANEL_GAME = null; $('#gamePanel').classList.add('hidden'); $('#gpanelCard').innerHTML = ''; }
+$('#gamePanel').addEventListener('mousedown', (e) => { if (e.target.id === 'gamePanel') closeGamePanel(); });
+function drawGamePanel() {
+  const g = D.games.find((x) => x.id === PANEL_GAME);
+  if (!g) return closeGamePanel();
+  const rules = D.rules.filter((r) => r.gameId === g.id);
+  const acts = gameActions(g.id);
+  const active = g.id === D.activeGameId;
+  const on = rules.filter((r) => r.enabled).length;
+  const card = $('#gpanelCard');
+  card.innerHTML = `
+    <div class="gp-hero">${coverHTML(g, 'gp-cover')}
+      <div class="gp-info">
+        <div class="gp-name">${esc(g.name)}</div>
+        <div class="badges">${active ? '<span class="badge easy">ACTIVE</span>' : ''}<span class="badge">${rules.length} trigger${rules.length === 1 ? '' : 's'} · ${on} on</span>${acts.length ? `<span class="badge">${acts.length} events in its mod</span>` : ''}</div>
+        <div class="row">
+          <button class="btn primary small" id="gpLaunch">▶ Launch</button>
+          ${active ? '' : '<button class="btn small" id="gpActive">Make active</button>'}
+          ${acts.length ? '<button class="btn primary small" id="gpNew">+ New trigger</button>' : ''}
+        </div>
+      </div>
+      <button class="btn small ghost gp-close" id="gpClose" title="Close (Esc)">✕</button>
+    </div>
+    <div class="gp-body">
+      ${!acts.length ? `<div class="notice">${esc(g.name)} has no BlumMods mod yet, so it has no game events to trigger. Ask Claude to “mod ${esc(g.name)}”. For simple key presses, use the <b>Key presses</b> section.</div>` : ''}
+      ${acts.length && !rules.length ? `<div class="empty"><h3>No triggers for ${esc(g.name)} yet</h3><p>Pick a gift and what it does in this game: jail, money, launch… Triggers you set here only fire while this game is active.</p><div class="row"><button class="btn primary" id="gpEmptyNew">+ New trigger</button></div></div>` : ''}
+      <div id="gpRules" class="rule-list"></div>
+    </div>`;
+  if (rules.length) renderRuleList($('#gpRules'), rules, g.id);
+  $('#gpClose').onclick = closeGamePanel;
+  $('#gpLaunch').onclick = async () => { await blum.launchGame(g.id); D.activeGameId = g.id; persist(); renderAll(); };
+  if ($('#gpActive')) $('#gpActive').onclick = () => { D.activeGameId = g.id; persist(); renderAll(); toast(`${g.name} is now the active game`); };
+  for (const id of ['#gpNew', '#gpEmptyNew']) if ($(id)) $(id).onclick = () => openRuleModal(null, g.id);
 }
 
-function newRule() {
-  const scope = $('#ruleScope').value;
+// ---------- key presses: universal, with one master switch ----------
+function renderKeys() {
+  const on = D.settings.keysOn !== false;
+  $('#keysOn').checked = on;
+  $('#keysOnText').textContent = on ? 'On' : 'Off';
+  $('#keysOffNote').innerHTML = on ? '' : '<div class="notice">Key presses are switched off. None of these will fire until you turn them back on.</div>';
+  const rules = D.rules.filter((r) => !r.gameId);
+  const list = $('#keyRules');
+  if (!rules.length) {
+    list.innerHTML = `<div class="empty"><h3>No key presses yet</h3><p>Handy for games that can't be modded: a Rose presses Space, a Galaxy holds W… They work in whatever game is in front.</p><div class="row"><button class="btn primary" id="keysEmptyNew">+ New key press</button></div></div>`;
+    $('#keysEmptyNew').onclick = () => openRuleModal(null, null);
+    return;
+  }
+  renderRuleList(list, rules, null);
+}
+$('#keysOn').onchange = (e) => { D.settings.keysOn = e.target.checked; persist(); renderKeys(); };
+$('#addKeyBtn').onclick = () => openRuleModal(null, null);
+
+function newRule(gameId) {
   return {
-    id: null, gameId: scope && scope !== '*' ? scope : D.activeGameId, name: '', enabled: true,
+    id: null, gameId, name: '', enabled: true,
     trigger: { type: 'gift', giftName: 'Rose', minDiamonds: 0, likeEvery: 100, command: '!jump' },
-    repeatPerGift: true, cooldownSec: 0, actions: [{ kind: 'key', key: 'Space', holdMs: 80, repeat: 1 }],
+    repeatPerGift: true, cooldownSec: 0, actions: [],
   };
 }
 function firstActionFor(gameId) {
+  if (!gameId) return [{ kind: 'key', key: 'Space', holdMs: 80, repeat: 1 }];
   const act = gameActions(gameId)[0];
-  return act ? [{ kind: 'game', action: act.id, params: defaultParams(act) }] : [{ kind: 'key', key: 'Space', holdMs: 80, repeat: 1 }];
+  return act ? [{ kind: 'game', action: act.id, params: defaultParams(act) }] : [];
 }
 
 function defaultAction(kind) {
@@ -468,10 +492,11 @@ const TRIGGER_INFO = {
   join: { label: 'Viewer joins', desc: 'A viewer enters your LIVE. Busy streams fire this a lot, so add a cooldown.' },
 };
 
+// gameId: the game whose triggers these are, or null for key presses.
 // sel: 'when', 'sound' or the number of the step to open on
-function openRuleModal(rule, preset, sel = 'when') {
+function openRuleModal(rule, gameId, sel = 'when') {
   const isNew = !rule;
-  const r = structuredClone(rule || { ...newRule(), ...(preset || {}) });
+  const r = structuredClone(rule || newRule(gameId || null));
   if (isNew) { r.actions = firstActionFor(r.gameId); r.name = ''; sel = 0; }
   let steps = (r.actions || []).filter((a) => a.kind !== 'sound');
   let sound = (r.actions || []).find((a) => a.kind === 'sound') || null;
@@ -499,7 +524,6 @@ function openRuleModal(rule, preset, sel = 'when') {
       ${t.type === 'like' ? `<div class="prow"><label>Every<small>likes</small></label>${stepper('id="tLikes"', t.likeEvery || 100, 1)}</div>` : ''}
       ${t.type === 'chat' ? `<div class="prow"><label>Chat says<small>Empty means every message</small></label><input id="tCmd" value="${esc(t.command)}" placeholder="!jump"></div>` : ''}
       <div class="prow"><label>Cooldown<small>Seconds to ignore repeats</small></label>${stepper('id="rCd"', r.cooldownSec || 0, 0)}</div>
-      <div class="prow"><label>Works in</label><select id="rScope">${scopeOptions(r.gameId || '')}</select></div>
       <div class="prow"><label>Name<small>Optional</small></label><input id="rName" value="${esc(r.name)}" placeholder="named automatically"></div>
     </div>`;
 
@@ -527,6 +551,7 @@ function openRuleModal(rule, preset, sel = 'when') {
 
   const stepPane = (i) => {
     const a = steps[i];
+    if (!a) return '<div class="pane-detail solo"><p class="hint">This game has no BlumMods mod, so there is nothing to pick.</p></div>';
     const cat = eventCatalog(r.gameId);
     const q = ui.q.trim().toLowerCase();
     const counts = { all: cat.length, used: cat.filter(usedIn).length }; counts.unused = counts.all - counts.used;
@@ -538,7 +563,7 @@ function openRuleModal(rule, preset, sel = 'when') {
         <div class="row filt">${[['all', 'All'], ['unused', 'Unused'], ['used', 'Used']].map(([k, l]) => `<button class="chip ${ui.filter === k ? 'sel' : ''}" data-filter="${k}">${l} ${counts[k]}</button>`).join('')}</div>
         <div class="ev-scroll">${shown.map((ev) => `
           <button class="ev-item ${sameEvent(ev, a) ? 'sel' : ''}" data-ev="${cat.indexOf(ev)}"><span class="ev-ic">${esc(ev.icon)}</span><span><b>${esc(ev.label)}</b><small>${esc(ev.desc)}</small></span>${sameEvent(ev, a) ? '<span class="tick">✓</span>' : ''}</button>`).join('') || '<div class="empty-small">Nothing matches.</div>'}
-          ${noPlugin ? `<div class="notice" style="margin:10px 4px 0">${r.gameId ? 'This game has no BlumMods plugin yet, so only the general events are listed.' : 'Game events show up when "Works in" is set to a game with a BlumMods plugin.'}</div>` : ''}
+          ${noPlugin && r.gameId ? '<div class="notice" style="margin:10px 4px 0">This game has no BlumMods mod yet, so it has no events to pick.</div>' : ''}
         </div>
       </div>
       <div class="pane-detail">${stepDetail(a, eventFor(a, r.gameId))}</div>`;
@@ -557,7 +582,7 @@ function openRuleModal(rule, preset, sel = 'when') {
   const draw = () => {
     const g = D.games.find((x) => x.id === r.gameId);
     card.innerHTML = `
-      <div class="ed-top"><span class="ed-title">${isNew ? 'New trigger' : 'Trigger'}</span><span class="muted">${g ? esc(g.name) : 'All games'} · TikTok</span><button class="btn small ghost" id="rClose">Esc ✕</button></div>
+      <div class="ed-top"><span class="ed-title">${isNew ? (g ? 'New trigger' : 'New key press') : g ? 'Trigger' : 'Key press'}</span><span class="muted">${g ? esc(g.name) + ' only' : 'Key presses · every game'} · TikTok</span><button class="btn small ghost" id="rClose">Esc ✕</button></div>
       <div class="flow">
         <span class="flow-tx">When a viewer</span>
         <button class="flow-btn" data-sel="when">${whenChip(t, ui.sel === 'when' ? 'on' : '')}</button>
@@ -593,7 +618,6 @@ function openRuleModal(rule, preset, sel = 'when') {
     if (ui.sel === 'when') {
       $$('[data-t]', card).forEach((el) => (el.onclick = () => { t.type = el.dataset.t; draw(); }));
       $('#rName').oninput = (e) => (r.name = e.target.value);
-      $('#rScope').onchange = (e) => { r.gameId = e.target.value || null; draw(); };
       $('#rCd').oninput = (e) => (r.cooldownSec = Math.max(0, Number(e.target.value) || 0));
       if ($('#tGiftName')) {
         $('#tGiftName').oninput = (e) => (t.giftName = e.target.value);
@@ -639,13 +663,12 @@ function openRuleModal(rule, preset, sel = 'when') {
       }
       if (isNew) { r.id = uid(); D.rules.push(r); }
       else D.rules[D.rules.findIndex((x) => x.id === rule.id)] = r;
-      persist(); closeModal(); renderRules(); renderGames(); renderActiveGame();
-      if ($('#view-gifts').classList.contains('active')) renderGiftsView();
+      persist(); closeModal(); refreshTriggerViews();
     };
     if ($('#rDelete')) $('#rDelete').onclick = () => {
       if (!confirm(`Delete the trigger "${rule.name}"?`)) return;
       D.rules = D.rules.filter((x) => x.id !== rule.id);
-      persist(); closeModal(); renderRules(); renderGames(); renderActiveGame();
+      persist(); closeModal(); refreshTriggerViews();
     };
   };
   // update the chips in the flow bar without redrawing (keeps the cursor in the box being typed in)
@@ -696,7 +719,8 @@ $('#modal').addEventListener('mousedown', (e) => { if (e.target.id === 'modal') 
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || $('.recording')) return;
   if (!$('#picker').classList.contains('hidden')) return $('#picker').classList.add('hidden');
-  if (!$('#modal').classList.contains('hidden')) closeModal();
+  if (!$('#modal').classList.contains('hidden')) return closeModal();
+  if (!$('#gamePanel').classList.contains('hidden')) closeGamePanel();
 });
 
 // ---------- live feed ----------
@@ -746,7 +770,7 @@ blum.on('feed', showFeed);
 blum.on('queue', (n) => ($('#queueInfo').textContent = n ? `${n} action${n === 1 ? '' : 's'} queued` : ''));
 blum.on('alert', (a) => toast(a.text, a.color));
 blum.on('play-sound', ({ url, volume }) => { const au = new Audio(url); au.volume = Math.max(0, Math.min(1, volume)); au.play().catch(() => {}); });
-blum.on('gift-list', (list) => { GIFTS = list; GIFTS_REAL = true; renderGiftList(); if ($('#view-gifts').classList.contains('active')) renderGiftsView(); });
+blum.on('gift-list', (list) => { GIFTS = list; GIFTS_REAL = true; renderGiftList(); });
 blum.on('status', setStatus);
 
 function renderGiftList() { /* the picture dropdown reads GIFTS directly */ }
@@ -784,7 +808,7 @@ $('#tGiftPick').onclick = () => openGiftPicker($('#tGift').value, (g) => { if (g
 $('#refreshGiftsBtn').onclick = async () => {
   const b = $('#refreshGiftsBtn'); b.disabled = true; b.textContent = 'Loading…';
   const r = await blum.refreshGifts();
-  b.disabled = false; b.textContent = '⟳ Load from TikTok';
+  b.disabled = false; b.textContent = '⟳ Reload gift list';
   if (r.ok) toast(`Loaded ${r.count} gifts from TikTok`, 'var(--green)');
   else toast(`Couldn't load gifts: ${r.error}`, 'var(--red)');
 };
@@ -863,7 +887,11 @@ $('#checkUpdateBtn').onclick = () => { updateDismissed = ''; blum.updateCheck();
 blum.on('update', showUpdate);
 
 // ---------- boot ----------
-function renderAll() { renderGames(); renderActiveGame(); renderSettings(); if ($('#view-rules').classList.contains('active')) renderRules(); }
+function renderAll() {
+  renderGames(); renderActiveGame(); renderSettings();
+  if ($('#view-keys').classList.contains('active')) renderKeys();
+  if (PANEL_GAME && !$('#gamePanel').classList.contains('hidden')) drawGamePanel();
+}
 (async () => {
   const init = await blum.init();
   D = init.data; KEYS = init.keyChoices;

@@ -19,7 +19,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 // ---------- storage ----------
 const DATA_FILE = () => path.join(app.getPath('userData'), 'blummods-data.json');
 const DEFAULT_DATA = {
-  settings: { username: '', signApiKey: '', autoReconnect: true, dedupeFollows: true, port: 21777, keyGapMs: 60, feedOn: true, feedPort: 21213 },
+  settings: { username: '', signApiKey: '', autoReconnect: true, dedupeFollows: true, port: 21777, keyGapMs: 60, feedOn: true, feedPort: 21213, keysOn: true },
   activeGameId: null,
   games: [],
   rules: [],
@@ -63,7 +63,7 @@ function cleanData(d) {
       username: str(s.username, 60).replace(/[^\w.]/g, ''), signApiKey: str(s.signApiKey, 200),
       autoReconnect: s.autoReconnect !== false, dedupeFollows: s.dedupeFollows !== false,
       port: num(s.port, 21777, 1024, 65535), keyGapMs: num(s.keyGapMs, 60, 0, 5000),
-      feedOn: s.feedOn !== false, feedPort: num(s.feedPort, 21213, 1024, 65535),
+      feedOn: s.feedOn !== false, feedPort: num(s.feedPort, 21213, 1024, 65535), keysOn: s.keysOn !== false,
     },
     activeGameId: ids.has(d.activeGameId) ? d.activeGameId : null, games, rules,
     autoAdded: (Array.isArray(d.autoAdded) ? d.autoAdded : []).slice(0, 500).map((e) => str(e, 120).toLowerCase()).filter(Boolean),
@@ -287,7 +287,8 @@ function enqueue(name, actions, ev) {
   pump();
 }
 function activeRules() {
-  return data.rules.filter((r) => r.enabled && (!r.gameId || r.gameId === data.activeGameId));
+  // Game triggers belong to one game; key-press triggers (no game) are universal and share one master switch.
+  return data.rules.filter((r) => r.enabled && (r.gameId ? r.gameId === data.activeGameId : data.settings.keysOn !== false));
 }
 
 function handleEvent(ev) {
@@ -471,7 +472,8 @@ async function autoAddGames() {
   data = cleanData(data); save();
   send('games-added', { games: data.games.filter((g) => pendingAuto.has(g.id)), autoAdded: data.autoAdded });
 }
-const refreshPlugins = async () => { await refreshManifest(); await autoAddGames(); await syncPlugins(); };
+// BLUM_NO_SYNC (dev screenshots only): never touch real game folders from a test run.
+const refreshPlugins = async () => { if (process.env.BLUM_NO_SYNC) return; await refreshManifest(); await autoAddGames(); await syncPlugins(); };
 
 // ---------- updates ----------
 let updater = null;

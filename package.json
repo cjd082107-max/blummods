@@ -1,7 +1,7 @@
 {
   "name": "blummods",
   "productName": "BlumMods",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Make your games react to your TikTok LIVE",
   "main": "src/main.js",
   "author": "Carter",

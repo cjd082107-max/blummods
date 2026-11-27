@@ -1,1 +1,1 @@
-Modded games add themselves: any game with a BlumMods mod that's installed in Steam (on any drive) now gets its card and its plugin automatically. Removing one keeps it removed. New: Megastore: Tidy Up Together mod.
+Each game now has its own triggers: click ⚡ Triggers on a game to open its panel. Key presses have their own section with one on/off switch. The Gifts and Triggers pages are gone (gifts are in the trigger's gift dropdown).
