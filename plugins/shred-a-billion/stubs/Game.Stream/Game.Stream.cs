@@ -7,6 +7,7 @@ namespace Game.Stream
     {
         public StreamActions(IntPtr pointer) : base(pointer) { }
         public string Launch(float power) => throw null;
+        public void FullReset() => throw null;
     }
     public class StreamSystem : MonoBehaviour
     {

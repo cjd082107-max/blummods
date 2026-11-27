@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -12,12 +12,14 @@ namespace BlumMods.MegastoreTidyUp
     public class Plugin : BaseUnityPlugin
     {
         public const string Id = "blummods.megastoretidyup";
-        public const string Version = "0.1.0";
+        public const string Version = "0.2.0";
         internal static ManualLogSource L;
+        internal static Plugin Instance;
 
         void Awake()
         {
             L = Logger;
+            Instance = this;
             var harmony = new Harmony(Id);
             // While jailed, every way of interacting with the store is switched off.
             // Each hook goes on separately so one renamed game method can't take the others down.

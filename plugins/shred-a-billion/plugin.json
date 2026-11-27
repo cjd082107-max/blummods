@@ -5,7 +5,7 @@
     "ShredABillion.exe"
   ],
   "file": "BlumMods.ShredABillion.dll",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "actions": [
     {
       "id": "jail",
@@ -41,7 +41,7 @@
           "label": "dollars",
           "default": 1000,
           "min": 1,
-          "max": 1000000000000,
+          "max": 1000000000000000,
           "name": "Amount",
           "step": 1000
         }
@@ -59,7 +59,7 @@
           "label": "dollars",
           "default": 1000,
           "min": 1,
-          "max": 1000000000000,
+          "max": 1000000000000000,
           "name": "Amount",
           "step": 1000
         }
@@ -111,6 +111,74 @@
       "category": "Player",
       "icon": "🚀",
       "desc": "Throws the streamer into the air using the game's own launch effect. Needs the game's stream mode running."
+    },
+    {
+      "id": "remove_bills",
+      "label": "Remove bills",
+      "category": "Helps",
+      "icon": "🧹",
+      "desc": "Takes this many bills out of the pile, so the streamer gets closer to clearing the billion. Set any amount: 10, 1,000,000 or more.",
+      "params": [
+        {
+          "id": "amount",
+          "name": "Amount",
+          "label": "bills",
+          "default": 1000,
+          "min": 1,
+          "max": 1000000000000,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "add_bills",
+      "label": "Add bills",
+      "category": "Hurts",
+      "icon": "💸",
+      "desc": "Dumps this many extra bills onto the pile, so the streamer has more to clear. Set any amount.",
+      "params": [
+        {
+          "id": "amount",
+          "name": "Amount",
+          "label": "bills",
+          "default": 1000,
+          "min": 1,
+          "max": 1000000000000,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "insta_win",
+      "label": "Insta win",
+      "category": "Helps",
+      "icon": "🏆",
+      "desc": "Clears every bill left in the pile at once.",
+      "params": []
+    },
+    {
+      "id": "insta_reset",
+      "label": "Insta reset",
+      "category": "Hurts",
+      "icon": "🔁",
+      "desc": "Instantly starts the run over, using the game's own full reset. The save is backed up first.",
+      "params": []
+    },
+    {
+      "id": "reset_with_backup",
+      "label": "Reset (backup kept)",
+      "category": "Hurts",
+      "icon": "💾",
+      "desc": "Starts the run over and keeps a backup of the save in BlumMods backups, so it can be restored later.",
+      "params": []
+    },
+    {
+      "id": "save_reset",
+      "label": "Save reset",
+      "category": "Hurts",
+      "icon": "☠️",
+      "desc": "Wipes the progress back to a brand-new game: money and the pile. The old save is backed up first, just in case.",
+      "params": []
     }
   ]
 }

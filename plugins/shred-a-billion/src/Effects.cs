@@ -106,6 +106,51 @@ namespace BlumMods.ShredABillion
                     Plugin.Say("Launched" + who + (string.IsNullOrEmpty(result) ? "" : " [" + result + "]"));
                     break;
                 }
+                // ---- the win item: dollar bills in the pile (universal events, Standard Events note) ----
+                case "remove_bills":
+                {
+                    var n = (long)Clamp(c.Num("amount", 1000), 1, 1e12);
+                    if (!Pile.Ready) { Plugin.Say("The bill pile isn't loaded yet. Start a run first."); break; }
+                    var gone = Pile.Remove(player.Position, n);
+                    Plugin.Say("Removed " + gone.ToString("N0") + " bills from the pile" + who + " · " + Pile.Remaining.ToString("N0") + " left");
+                    break;
+                }
+                case "add_bills":
+                {
+                    var n = (long)Clamp(c.Num("amount", 1000), 1, 1e12);
+                    if (!Pile.Ready) { Plugin.Say("The bill pile isn't loaded yet. Start a run first."); break; }
+                    var at = player.Position; at.y += 2f;
+                    Pile.Add(at, n);
+                    Plugin.Say("Dumped " + n.ToString("N0") + " more bills on the pile" + who + " · " + Pile.Remaining.ToString("N0") + " left");
+                    break;
+                }
+                case "insta_win":
+                {
+                    if (!Pile.Ready) { Plugin.Say("The bill pile isn't loaded yet. Start a run first."); break; }
+                    var left = Pile.Remaining;
+                    var gone = Pile.Remove(player.Position, Math.Max(1, left));
+                    Plugin.Say("INSTA WIN" + who + ": cleared " + gone.ToString("N0") + " bills · " + Pile.Remaining.ToString("N0") + " left");
+                    break;
+                }
+                // ---- resets: every one backs up the save first ----
+                case "insta_reset":
+                case "reset_with_backup":
+                {
+                    var actions = StreamSystem.Instance != null ? StreamSystem.Instance._actions : null;
+                    if (actions == null) { Plugin.Say("Reset needs the game's stream mode running (start a stream run in the game)"); break; }
+                    var backup = Pile.BackupSave();
+                    actions.FullReset();
+                    Plugin.Say((c.Name == "insta_reset" ? "INSTA RESET" : "RESET") + who + ": the run starts over" + (backup != null ? ". Save backed up first." : "."));
+                    break;
+                }
+                case "save_reset":
+                {
+                    var backup = Pile.BackupSave();
+                    if (Economy != null) Economy.ResetToNew();
+                    if (Pile.Ready) Pile.ResetToNew();
+                    Plugin.Say("SAVE RESET" + who + ": back to a brand-new game" + (backup != null ? ". The old save is backed up in BlumMods backups." : "."));
+                    break;
+                }
                 default:
                     Plugin.Say("This mod doesn't know the action '" + c.Name + "'. Update the BlumMods plugin.");
                     break;

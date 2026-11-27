@@ -10,7 +10,7 @@ namespace BlumMods.ShredABillion
     public class Plugin : BasePlugin
     {
         public const string Id = "blummods.shredabillion";
-        public const string Version = "0.3.1";
+        public const string Version = "0.4.0";
         internal static ManualLogSource L;
 
         public override void Load()
@@ -23,6 +23,7 @@ namespace BlumMods.ShredABillion
                 try { harmony.CreateClassProcessor(t).Patch(); Log.LogInfo("Hooked " + t.Name); }
                 catch (Exception e) { Log.LogError("Could not hook " + t.Name + ": " + e); }
             }
+            Pile.Hook(harmony);
             Bridge.Start();
             Log.LogInfo("BlumMods plugin " + Version + " loaded");
         }

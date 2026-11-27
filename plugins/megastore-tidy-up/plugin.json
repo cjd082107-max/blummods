@@ -5,7 +5,7 @@
     "Megastore Tidy Up Together.exe"
   ],
   "file": "BlumMods.MegastoreTidyUp.dll",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "actions": [
     {
       "id": "jail",
@@ -13,7 +13,17 @@
       "category": "Player",
       "icon": "🔒",
       "desc": "Locks the streamer in a steel-barred jail cell right where they stand. They can see the store through the bars but can't grab, place or use skills until the time is up. More jail gifts add more time.",
-      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 15, "min": 1, "max": 600, "step": 1 }]
+      "params": [
+        {
+          "id": "seconds",
+          "name": "Time",
+          "label": "seconds",
+          "default": 15,
+          "min": 1,
+          "max": 600,
+          "step": 1
+        }
+      ]
     },
     {
       "id": "unjail",
@@ -30,8 +40,24 @@
       "icon": "⚡",
       "desc": "The streamer walks and runs faster for a while.",
       "params": [
-        { "id": "multiplier", "name": "Speed", "label": "x", "default": 2, "min": 1.1, "max": 5, "step": 0.1 },
-        { "id": "seconds", "name": "Time", "label": "seconds", "default": 20, "min": 1, "max": 600, "step": 1 }
+        {
+          "id": "multiplier",
+          "name": "Speed",
+          "label": "x",
+          "default": 2,
+          "min": 1.1,
+          "max": 5,
+          "step": 0.1
+        },
+        {
+          "id": "seconds",
+          "name": "Time",
+          "label": "seconds",
+          "default": 20,
+          "min": 1,
+          "max": 600,
+          "step": 1
+        }
       ]
     },
     {
@@ -40,7 +66,17 @@
       "category": "Helps",
       "icon": "🦘",
       "desc": "The streamer jumps more than twice as high for a while.",
-      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 20, "min": 1, "max": 600, "step": 1 }]
+      "params": [
+        {
+          "id": "seconds",
+          "name": "Time",
+          "label": "seconds",
+          "default": 20,
+          "min": 1,
+          "max": 600,
+          "step": 1
+        }
+      ]
     },
     {
       "id": "magnet",
@@ -48,7 +84,17 @@
       "category": "Helps",
       "icon": "🧲",
       "desc": "Turns on the game's own Magnet skill for free: nearby products get pulled toward the streamer.",
-      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 10, "min": 1, "max": 120, "step": 1 }]
+      "params": [
+        {
+          "id": "seconds",
+          "name": "Time",
+          "label": "seconds",
+          "default": 10,
+          "min": 1,
+          "max": 120,
+          "step": 1
+        }
+      ]
     },
     {
       "id": "shelf_glow",
@@ -56,7 +102,17 @@
       "category": "Helps",
       "icon": "✨",
       "desc": "Turns on the game's own shelf glow skill for free: the right shelf for what the streamer is holding lights up.",
-      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 15, "min": 1, "max": 120, "step": 1 }]
+      "params": [
+        {
+          "id": "seconds",
+          "name": "Time",
+          "label": "seconds",
+          "default": 15,
+          "min": 1,
+          "max": 120,
+          "step": 1
+        }
+      ]
     },
     {
       "id": "give_xp",
@@ -64,7 +120,17 @@
       "category": "Helps",
       "icon": "⭐",
       "desc": "Gives the streamer this much skill XP, as if they had finished shelves.",
-      "params": [{ "id": "amount", "name": "Amount", "label": "XP", "default": 100, "min": 1, "max": 100000, "step": 10 }]
+      "params": [
+        {
+          "id": "amount",
+          "name": "Amount",
+          "label": "XP",
+          "default": 100,
+          "min": 1,
+          "max": 100000,
+          "step": 10
+        }
+      ]
     },
     {
       "id": "freeze",
@@ -72,7 +138,17 @@
       "category": "Hurts",
       "icon": "🧊",
       "desc": "The streamer can't move for a few seconds. They can still look around.",
-      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 5, "min": 1, "max": 120, "step": 1 }]
+      "params": [
+        {
+          "id": "seconds",
+          "name": "Time",
+          "label": "seconds",
+          "default": 5,
+          "min": 1,
+          "max": 120,
+          "step": 1
+        }
+      ]
     },
     {
       "id": "slow_walk",
@@ -80,7 +156,17 @@
       "category": "Hurts",
       "icon": "🐌",
       "desc": "The streamer moves at a crawl (0.3x speed) for a while.",
-      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 15, "min": 1, "max": 600, "step": 1 }]
+      "params": [
+        {
+          "id": "seconds",
+          "name": "Time",
+          "label": "seconds",
+          "default": 15,
+          "min": 1,
+          "max": 600,
+          "step": 1
+        }
+      ]
     },
     {
       "id": "product_explosion",
@@ -88,7 +174,17 @@
       "category": "Hurts",
       "icon": "💥",
       "desc": "Every loose item within a few metres of the streamer goes flying. Items already on shelves are never touched.",
-      "params": [{ "id": "power", "name": "Power", "label": "power", "default": 1, "min": 0.1, "max": 5, "step": 0.1 }]
+      "params": [
+        {
+          "id": "power",
+          "name": "Power",
+          "label": "power",
+          "default": 1,
+          "min": 0.1,
+          "max": 5,
+          "step": 0.1
+        }
+      ]
     },
     {
       "id": "lights_out",
@@ -96,7 +192,17 @@
       "category": "Hurts",
       "icon": "🌑",
       "desc": "The whole store goes dark for a while.",
-      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 15, "min": 1, "max": 300, "step": 1 }]
+      "params": [
+        {
+          "id": "seconds",
+          "name": "Time",
+          "label": "seconds",
+          "default": 15,
+          "min": 1,
+          "max": 300,
+          "step": 1
+        }
+      ]
     },
     {
       "id": "launch",
@@ -104,7 +210,17 @@
       "category": "Funny",
       "icon": "🚀",
       "desc": "Throws the streamer up into the air.",
-      "params": [{ "id": "power", "name": "Power", "label": "power", "default": 1, "min": 0.1, "max": 5, "step": 0.1 }]
+      "params": [
+        {
+          "id": "power",
+          "name": "Power",
+          "label": "power",
+          "default": 1,
+          "min": 0.1,
+          "max": 5,
+          "step": 0.1
+        }
+      ]
     },
     {
       "id": "moon_gravity",
@@ -112,7 +228,17 @@
       "category": "Funny",
       "icon": "🌙",
       "desc": "Everything gets floaty for a while: the streamer and every falling product.",
-      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 20, "min": 1, "max": 600, "step": 1 }]
+      "params": [
+        {
+          "id": "seconds",
+          "name": "Time",
+          "label": "seconds",
+          "default": 20,
+          "min": 1,
+          "max": 600,
+          "step": 1
+        }
+      ]
     },
     {
       "id": "product_rain",
@@ -120,7 +246,17 @@
       "category": "Funny",
       "icon": "🌧️",
       "desc": "Loose items from around the store drop out of the sky onto the streamer. Shelved items are never taken.",
-      "params": [{ "id": "count", "name": "Items", "label": "items", "default": 25, "min": 1, "max": 150, "step": 1 }]
+      "params": [
+        {
+          "id": "count",
+          "name": "Items",
+          "label": "items",
+          "default": 25,
+          "min": 1,
+          "max": 150,
+          "step": 1
+        }
+      ]
     },
     {
       "id": "drunk_camera",
@@ -128,7 +264,17 @@
       "category": "Funny",
       "icon": "🥴",
       "desc": "The streamer's view sways and wobbles for a while.",
-      "params": [{ "id": "seconds", "name": "Time", "label": "seconds", "default": 15, "min": 1, "max": 300, "step": 1 }]
+      "params": [
+        {
+          "id": "seconds",
+          "name": "Time",
+          "label": "seconds",
+          "default": 15,
+          "min": 1,
+          "max": 300,
+          "step": 1
+        }
+      ]
     },
     {
       "id": "barrel_roll",
@@ -136,7 +282,85 @@
       "category": "Funny",
       "icon": "🌀",
       "desc": "The streamer's view spins all the way around.",
-      "params": [{ "id": "rolls", "name": "Rolls", "label": "rolls", "default": 2, "min": 1, "max": 10, "step": 1 }]
+      "params": [
+        {
+          "id": "rolls",
+          "name": "Rolls",
+          "label": "rolls",
+          "default": 2,
+          "min": 1,
+          "max": 10,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "tidy_items",
+      "label": "Tidy items",
+      "category": "Helps",
+      "icon": "🧹",
+      "desc": "Puts this many loose items onto their right shelves for the streamer, nearest first, the same way the game's Pair Up skill does. Set any amount.",
+      "params": [
+        {
+          "id": "amount",
+          "name": "Amount",
+          "label": "items",
+          "default": 10,
+          "min": 1,
+          "max": 1000000000000,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "mess_items",
+      "label": "Mess up items",
+      "category": "Hurts",
+      "icon": "📦",
+      "desc": "Knocks this many already-sorted items off their shelves, nearest first, so the streamer has to sort them again. Set any amount.",
+      "params": [
+        {
+          "id": "amount",
+          "name": "Amount",
+          "label": "items",
+          "default": 10,
+          "min": 1,
+          "max": 1000000000000,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "id": "insta_win",
+      "label": "Insta win",
+      "category": "Helps",
+      "icon": "🏆",
+      "desc": "Sorts every loose item in the store onto its shelf.",
+      "params": []
+    },
+    {
+      "id": "insta_reset",
+      "label": "Insta reset",
+      "category": "Hurts",
+      "icon": "🔁",
+      "desc": "Starts this store over from scratch and reloads it. The save is backed up first.",
+      "params": []
+    },
+    {
+      "id": "reset_with_backup",
+      "label": "Reset (backup kept)",
+      "category": "Hurts",
+      "icon": "💾",
+      "desc": "Starts this store over and keeps a backup of its save in BlumMods backups, so it can be restored later.",
+      "params": []
+    },
+    {
+      "id": "save_reset",
+      "label": "Save reset",
+      "category": "Hurts",
+      "icon": "☠️",
+      "desc": "Wipes every store back to brand new and returns to the menu. All save files are backed up first, just in case.",
+      "params": []
     }
   ]
 }

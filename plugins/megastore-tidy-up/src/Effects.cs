@@ -49,6 +49,17 @@ namespace BlumMods.MegastoreTidyUp
                     case "lights_out": LightsOut(who, Clamp(c.Num("seconds", 15), 1, 300)); break;
                     case "drunk_camera": _drunkUntil = Extend(_drunkUntil, Clamp(c.Num("seconds", 15), 1, 300)); Plugin.Say(who + " made the streamer dizzy for " + Left(_drunkUntil)); break;
                     case "barrel_roll": BarrelRoll(who, (int)Clamp(c.Num("rolls", 2), 1, 10)); break;
+                    // universal events (Standard Events note): the win item is "products to sort"
+                    case "tidy_items": Store.QueueTidy(who, (long)Clamp(c.Num("amount", 10), 1, 1e12)); break;
+                    case "mess_items": Store.QueueMess(who, (long)Clamp(c.Num("amount", 10), 1, 1e12)); break;
+                    case "insta_win": Store.QueueTidy(who, long.MaxValue); break;
+                    case "insta_reset":
+                    case "reset_with_backup":
+                    case "save_reset":
+                        if (Store.Busy) { Plugin.Say(who + " sent a reset, but one is already running."); break; }
+                        if (Jailed) EndJail("Jail ended because the store is resetting.");
+                        Plugin.Instance.StartCoroutine(Store.Reset(who, c.Name == "save_reset"));
+                        break;
                     default: Plugin.Say("Unknown command: " + c.Name); break;
                 }
             }
@@ -58,6 +69,7 @@ namespace BlumMods.MegastoreTidyUp
         internal static void Tick()
         {
             var now = Time.time;
+            try { Store.Tick(); } catch (Exception e) { Fail("tidy", e); }
             try
             {
                 if (_jailUntil > 0 && now >= _jailUntil) EndJail("Jail time is up. The streamer is free.");
