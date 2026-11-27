@@ -1,1 +1,1 @@
-Security hardening and fixes from a full code review
+Modded games add themselves: any game with a BlumMods mod that's installed in Steam (on any drive) now gets its card and its plugin automatically. Removing one keeps it removed. New: Megastore: Tidy Up Together mod.

@@ -172,6 +172,17 @@ function pluginEntry(gameId) {
 const gameActions = (gameId) => pluginEntry(gameId)?.actions || [];
 const defaultParams = (act) => Object.fromEntries((act?.params || []).map((p) => [p.id, p.default]));
 blum.on('plugins', ({ manifest, statuses }) => { MANIFEST = manifest; MODS = statuses; if ($('#view-games').classList.contains('active') && $('#modal').classList.contains('hidden')) renderGames(); });
+// The app found a modded game in Steam and added it by itself.
+blum.on('games-added', ({ games, autoAdded }) => {
+  if (!D) return;
+  const fresh = (games || []).filter((g) => !D.games.some((x) => x.id === g.id));
+  D.games.push(...fresh);
+  D.autoAdded = autoAdded || D.autoAdded || [];
+  if (!fresh.length) return;
+  persist();
+  if ($('#view-games').classList.contains('active') && $('#modal').classList.contains('hidden')) renderGames();
+  toast(`Added ${fresh.map((g) => g.name).join(', ')}: it has a BlumMods mod`);
+});
 async function refreshMods() { try { MODS = await blum.modStatus(); } catch { /* keep the last known */ } }
 function modRowHTML(g) {
   const m = MODS[g.id];

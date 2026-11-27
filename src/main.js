@@ -10,6 +10,7 @@ const { KeySender, KEY_CHOICES } = require('./keys');
 const { Updater } = require('./updater');
 const { toTikFinity } = require('./feed');
 const modloader = require('./modloader');
+const autoadd = require('./autoadd');
 
 app.setName('BlumMods');
 if (process.platform === 'win32') app.setAppUserModelId('com.blummods.app');
@@ -22,6 +23,7 @@ const DEFAULT_DATA = {
   activeGameId: null,
   games: [],
   rules: [],
+  autoAdded: [], // exe names the app added by itself once; if he removes one, it is never added again
 };
 let data = structuredClone(DEFAULT_DATA);
 // Everything that becomes app data (saved file, restored backup, what the window sends) is cleaned here first.
@@ -64,6 +66,7 @@ function cleanData(d) {
       feedOn: s.feedOn !== false, feedPort: num(s.feedPort, 21213, 1024, 65535),
     },
     activeGameId: ids.has(d.activeGameId) ? d.activeGameId : null, games, rules,
+    autoAdded: (Array.isArray(d.autoAdded) ? d.autoAdded : []).slice(0, 500).map((e) => str(e, 120).toLowerCase()).filter(Boolean),
   };
 }
 function load() {
@@ -451,7 +454,24 @@ async function syncPlugins() {
   }
   send('plugins', { manifest: pluginManifest, statuses: modStatuses() });
 }
-const refreshPlugins = async () => { await refreshManifest(); await syncPlugins(); };
+// Every game that has a BlumMods plugin and is installed in Steam gets a card by itself (once).
+const pendingAuto = new Set(); // ids the window hasn't confirmed yet, so a save from it can't drop them
+async function autoAddGames() {
+  let found = [];
+  try { found = autoadd.gamesToAdd(pluginManifest.games, data.games, data.autoAdded, autoadd.steamLibraries()); } catch (e) { log(`Couldn't look for modded games in Steam (${e.message})`, 'warn'); return; }
+  if (!found.length) return;
+  const added = [];
+  for (const { entry, exe } of found) {
+    const g = { id: Math.random().toString(36).slice(2, 10), name: entry.name || path.basename(exe, '.exe'), exe, launchArgs: '', icon: await exeIcon(exe), cover: '', ...detectEngine(exe), addedAt: Date.now() };
+    delete g.bepinex;
+    data.games.push(g); added.push(g); pendingAuto.add(g.id);
+    data.autoAdded.push(...(entry.exe || []).map((e) => String(e).toLowerCase()));
+    log(`${g.name} has a BlumMods mod, so it was added to your games`, 'good');
+  }
+  data = cleanData(data); save();
+  send('games-added', { games: data.games.filter((g) => pendingAuto.has(g.id)), autoAdded: data.autoAdded });
+}
+const refreshPlugins = async () => { await refreshManifest(); await autoAddGames(); await syncPlugins(); };
 
 // ---------- updates ----------
 let updater = null;
@@ -542,7 +562,14 @@ function wireIpc() {
   ipcMain.handle('save', (_e, next) => {
     const portChanged = next.settings?.port !== data.settings.port;
     const feedChanged = next.settings?.feedOn !== data.settings.feedOn || next.settings?.feedPort !== data.settings.feedPort;
-    data = cleanData(next); save();
+    const fresh = cleanData(next);
+    // A save sent before the window heard about auto-added games must not wipe them out.
+    for (const id of [...pendingAuto]) {
+      if (fresh.games.some((g) => g.id === id)) pendingAuto.delete(id);
+      else { const g = data.games.find((x) => x.id === id); if (g) fresh.games.push(g); }
+    }
+    fresh.autoAdded = [...new Set([...fresh.autoAdded, ...data.autoAdded])];
+    data = fresh; save();
     if (feedChanged) startFeed();
     if (portChanged) { try { server.close(); } catch {} startServer(); }
     return true;

@@ -26,7 +26,7 @@ contextBridge.exposeInMainWorld('blum', {
   exportData: invoke('export-data'),
   importData: invoke('import-data'),
   on: (ch, fn) => {
-    const ok = ['log', 'status', 'event', 'stats', 'mods', 'queue', 'alert', 'play-sound', 'gift-list', 'update', 'feed', 'mod-progress', 'plugins'];
+    const ok = ['log', 'status', 'event', 'stats', 'mods', 'queue', 'alert', 'play-sound', 'gift-list', 'update', 'feed', 'mod-progress', 'plugins', 'games-added'];
     if (ok.includes(ch)) ipcRenderer.on(ch, (_e, p) => fn(p));
   },
 });
