@@ -46,7 +46,16 @@ namespace BlumMods.ShredABillion
         {
             if (_started) return;
             _started = true;
-            var t = new Thread(() => { try { Loop().GetAwaiter().GetResult(); } catch (Exception e) { Plugin.L.LogError("Bridge stopped: " + e); } });
+            // The loop must never end: if anything escapes it, log it and start it again.
+            var t = new Thread(() =>
+            {
+                while (true)
+                {
+                    try { Loop().GetAwaiter().GetResult(); }
+                    catch (Exception e) { try { Plugin.L.LogError("Bridge crashed, restarting: " + e); } catch { } }
+                    Thread.Sleep(3000);
+                }
+            });
             t.IsBackground = true;
             t.Name = "BlumMods bridge";
             t.Start();
@@ -65,11 +74,13 @@ namespace BlumMods.ShredABillion
             var announced = false;
             while (true)
             {
+                var connected = false;
                 try
                 {
                     using (var ws = new ClientWebSocket())
                     {
-                        await ws.ConnectAsync(new Uri(Url), CancellationToken.None);
+                        using (var cts = new CancellationTokenSource(5000)) await ws.ConnectAsync(new Uri(Url), cts.Token);
+                        connected = true;
                         Plugin.L.LogInfo("Connected to the BlumMods app");
                         announced = false;
                         await Send(ws, "{\"type\":\"hello\",\"game\":\"SHRED A BILLION\",\"plugin\":\"" + Plugin.Version + "\"}");
@@ -85,28 +96,36 @@ namespace BlumMods.ShredABillion
                                 if (r.EndOfMessage)
                                 {
                                     var json = sb.ToString(); sb.Clear();
-                                    if (json.StartsWith("{\"type\":\"resetbox\"")) ResetBox.Receive(json);
-                                    else if (json.Contains("\"command\"")) Incoming.Enqueue(new Command(json));
+                                    try
+                                    {
+                                        if (json.StartsWith("{\"type\":\"resetbox\"", StringComparison.Ordinal)) ResetBox.Receive(json);
+                                        else if (json.Contains("\"command\"")) Incoming.Enqueue(new Command(json));
+                                    }
+                                    catch (Exception e) { Plugin.L.LogWarning("Skipped a message from the app: " + e.Message); }
                                 }
                                 receive = ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                             }
                             while (Outgoing.TryDequeue(out var msg)) await Send(ws, msg);
                             await Task.WhenAny(receive, Task.Delay(100));
                         }
+                        Plugin.L.LogInfo("The BlumMods app closed the connection (" + ws.State + "), reconnecting");
                     }
                 }
                 catch (Exception e)
                 {
-                    if (!announced) { Plugin.L.LogInfo("BlumMods app not reachable yet (" + e.GetType().Name + "), will keep trying"); announced = true; }
+                    if (connected) Plugin.L.LogWarning("Lost the BlumMods app (" + e.GetType().Name + ": " + e.Message + "), reconnecting");
+                    else if (!announced) { Plugin.L.LogInfo("BlumMods app not reachable yet (" + e.GetType().Name + "), will keep trying"); announced = true; }
                 }
                 await Task.Delay(3000);
             }
         }
 
-        static Task Send(ClientWebSocket ws, string text)
+        // A send that hangs (the app froze or went away without closing) gives up after 10 s, so the loop reconnects.
+        static async Task Send(ClientWebSocket ws, string text)
         {
             var bytes = Encoding.UTF8.GetBytes(text);
-            return ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+            using (var cts = new CancellationTokenSource(10000))
+                await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cts.Token);
         }
     }
 }

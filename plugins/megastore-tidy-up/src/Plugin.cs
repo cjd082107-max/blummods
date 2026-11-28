@@ -12,7 +12,7 @@ namespace BlumMods.MegastoreTidyUp
     public class Plugin : BaseUnityPlugin
     {
         public const string Id = "blummods.megastoretidyup";
-        public const string Version = "0.3.0";
+        public const string Version = "0.3.1";
         internal static ManualLogSource L;
         internal static Plugin Instance;
 
