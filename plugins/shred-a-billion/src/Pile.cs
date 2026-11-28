@@ -49,8 +49,10 @@ namespace BlumMods.ShredABillion
         internal static long Remaining => Ready ? Convert.ToInt64(AccessTools.PropertyGetter(_type, "BillsRemaining").Invoke(Instance, null)) : -1;
 
         // Takes up to `notes` bills from the main pile, wherever the streamer is (Carter, 2026-11-27).
-        // The game caps one grab's radius (MoneyPile.TakeRadiusMax), so grabs start at the pile's centre
-        // (MoneyPile._heap.Center) and spiral outwards until enough bills are taken or the vault is searched.
+        // The game caps one grab's radius (MoneyPile.TakeRadiusMax), so grabs start at the vault's centre
+        // (static Game.Core.VaultLayout.Center, where the big pile sits) and spiral outwards to the vault's corners
+        // (VaultLayout.HalfSize) until enough bills are taken. Grabs are made at the floor height of each spot
+        // (MoneyPile.VaultFloor), then at the streamer's height, so where he stands never decides it.
         // When pay is true, the taken bills go through the game's own shredder (DepositService.ShredNow),
         // so they pay exactly what shredding them would with his upgrades, and count toward the billion.
         // Returns how many bills went; paid tells whether they were paid out.
@@ -62,18 +64,20 @@ namespace BlumMods.ShredABillion
             var output = Activator.CreateInstance(take.GetParameters()[3].ParameterType);
             var clear = AccessTools.Method(output.GetType(), "Clear");
 
-            float cx = near.x, cz = near.z, spread = 40f;
+            float cx = near.x, cz = near.z, spread = 60f;
+            var where = "around the streamer (vault centre not found)";
             try
             {
-                var heap = AccessTools.PropertyGetter(_type, "_heap")?.Invoke(Instance, null);
-                if (heap != null)
-                {
-                    var c = (UnityEngine.Vector2)AccessTools.PropertyGetter(heap.GetType(), "Center").Invoke(heap, null);
-                    cx = c.x; cz = c.y;
-                    spread = Math.Max(spread, Convert.ToSingle(AccessTools.PropertyGetter(heap.GetType(), "Radius").Invoke(heap, null)) + 10f);
-                }
+                try { Assembly.Load("Game.Core"); } catch { }
+                var layout = AccessTools.TypeByName("Game.Core.VaultLayout");
+                var c = (UnityEngine.Vector2)AccessTools.PropertyGetter(layout, "Center").Invoke(null, null);
+                var half = Convert.ToSingle(AccessTools.PropertyGetter(layout, "HalfSize").Invoke(null, null));
+                cx = c.x; cz = c.y;
+                if (half > 1f) spread = half * 1.45f; // out to the corners
+                where = "vault centre " + cx.ToString("0.#") + ", " + cz.ToString("0.#") + " (half size " + half.ToString("0.#") + ")";
             }
-            catch (Exception e) { Plugin.L.LogWarning("Pile centre not found, taking around the streamer: " + e.Message); }
+            catch (Exception e) { Plugin.L.LogWarning("Vault centre not found: " + (e.InnerException ?? e).Message); }
+            var floorAt = AccessTools.Method(_type, "VaultFloor");
             float reach = 3f;
             try { reach = Math.Max(1f, Convert.ToSingle(AccessTools.PropertyGetter(_type, "TakeRadiusMax")?.Invoke(null, null) ?? 3f)); } catch { }
 
@@ -94,18 +98,27 @@ namespace BlumMods.ShredABillion
                 for (int k = 0; k < spots && total < notes; k++)
                 {
                     var a = 2 * Math.PI * k / spots;
-                    var at = V(cx + (float)(Math.Cos(a) * ring * step), near.y, cz + (float)(Math.Sin(a) * ring * step));
-                    for (int i = 0; i < 20 && total < notes; i++) // the same spot again until it is empty
+                    float x = cx + (float)(Math.Cos(a) * ring * step), z = cz + (float)(Math.Sin(a) * ring * step);
+                    float floorY = near.y;
+                    try { if (floorAt != null) floorY = Convert.ToSingle(floorAt.Invoke(Instance, new object[] { x, z })) + 0.5f; } catch { }
+                    foreach (var y in new[] { floorY, near.y })
                     {
-                        var got = Convert.ToInt64(take.Invoke(Instance, new object[] { at, reach, notes - total, output }));
-                        if (got > 0 && addSamples != null) { var args = new object[] { output, 0 }; addSamples.Invoke(tally, args); }
-                        clear?.Invoke(output, null);
-                        if (got <= 0) break;
-                        total += got;
+                        var at = V(x, y, z);
+                        long here = 0;
+                        for (int i = 0; i < 20 && total < notes; i++) // the same spot again until it is empty
+                        {
+                            var got = Convert.ToInt64(take.Invoke(Instance, new object[] { at, reach, notes - total, output }));
+                            if (got > 0 && addSamples != null) { var args = new object[] { output, 0 }; addSamples.Invoke(tally, args); }
+                            clear?.Invoke(output, null);
+                            if (got <= 0) break;
+                            total += got; here += got;
+                        }
+                        if (here > 0 || total >= notes) break; // that height worked: no need to try the other
                     }
                 }
             }
 
+            Plugin.L.LogInfo("Remove bills: took " + total + " of " + notes + " from " + where + ", grab radius " + reach.ToString("0.##"));
             if (total > 0 && tally != null)
             {
                 try

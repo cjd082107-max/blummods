@@ -981,8 +981,10 @@ window.drawPopup = (p) => {
   const x = cv.getContext('2d');
   const color = p.tone === 'bad' ? '#ff4d6a' : '#3ddc84';
   x.beginPath(); x.roundRect(10, 10, W - 20, H - 20, 26);
-  x.fillStyle = 'rgba(11,11,18,0.9)'; x.shadowColor = color; x.shadowBlur = 18; x.fill();
-  x.shadowBlur = 0; x.lineWidth = 5; x.strokeStyle = color; x.stroke();
+  // See-through background (Carter: the cash behind should show), solid text so it stays readable.
+  x.fillStyle = 'rgba(11,11,18,0.55)'; x.shadowColor = color; x.shadowBlur = 10; x.fill();
+  x.shadowBlur = 0; x.lineWidth = 4; x.strokeStyle = color + 'cc'; x.stroke();
+  x.shadowColor = 'rgba(0,0,0,0.85)'; x.shadowBlur = 6; // keeps the words crisp over a busy background
   x.textAlign = 'center'; x.textBaseline = 'alphabetic';
   const fit = (t, px, w, max) => { x.font = `${w} ${px}px "Segoe UI", system-ui, sans-serif`; while (x.measureText(t).width > max && px > 14) { px -= 2; x.font = `${w} ${px}px "Segoe UI", system-ui, sans-serif`; } };
   const left = p.icon ? 100 : 40;
