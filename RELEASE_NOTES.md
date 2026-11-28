@@ -1,1 +1,1 @@
-New Reset timer: a countdown box with your save gift pops up in the middle of the game. If nobody sends the save gift before 0, the save is wiped. Add a "Save from reset" trigger for the gift that saves you. (Replaces Reset (backup kept) and Save reset.)
+Steam games now launch through Steam, so their mods always load (launching the .exe made the game restart through Steam without its mod). If a game is already running, BlumMods won't start a second copy.

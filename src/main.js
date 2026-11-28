@@ -12,6 +12,7 @@ const { toTikFinity } = require('./feed');
 const modloader = require('./modloader');
 const autoadd = require('./autoadd');
 const { ResetTimer } = require('./resettimer');
+const { steamAppId, isRunning } = require('./steam');
 
 app.setName('BlumMods');
 if (process.platform === 'win32') app.setAppUserModelId('com.blummods.app');
@@ -153,6 +154,7 @@ function localOrigin(origin) {
 }
 let server, modWss, overlayWss;
 const mods = new Map(); // ws -> { game }
+let lastModHello = 0;
 function modsStatus() { send('mods', [...mods.values()]); }
 function startServer() {
   const port = Number(data.settings.port) || 21777;
@@ -177,7 +179,7 @@ function startServer() {
     ws.on('message', (m) => {
       try {
         const msg = JSON.parse(m.toString());
-        if (msg.type === 'hello') { mods.set(ws, { game: String(msg.game || 'Mod').slice(0, 60) }); modsStatus(); log(`${msg.game} connected${msg.plugin ? ` (plugin v${msg.plugin})` : ''}`, 'good'); }
+        if (msg.type === 'hello') { lastModHello = Date.now(); mods.set(ws, { game: String(msg.game || 'Mod').slice(0, 60) }); modsStatus(); log(`${msg.game} connected${msg.plugin ? ` (plugin v${msg.plugin})` : ''}`, 'good'); }
         else if (msg.type === 'log') log(`[${mods.get(ws)?.game}] ${String(msg.text || '').slice(0, 300)}`);
       } catch { /* ignore */ }
     });
@@ -679,12 +681,29 @@ function wireIpc() {
     if (!fs.existsSync(g.exe) || !fs.statSync(g.exe).isFile()) { log(`Can't find ${g.name} at ${g.exe}. Edit the game and pick its file again.`, 'bad'); return false; }
     data.activeGameId = id; save();
     await syncPlugins();
+    const appId = /\.exe$/i.test(g.exe) ? steamAppId(g.exe) : '';
+    if (/\.exe$/i.test(g.exe) && await isRunning(g.exe)) {
+      log(`${g.name} is already running, so it wasn't started again. Its triggers are active.`, 'good');
+      return true;
+    }
     if (/\.(lnk|url)$/i.test(g.exe)) { const err = await shell.openPath(g.exe); if (err) log(err, 'bad'); }
-    else {
+    else if (appId) {
+      // Through Steam, so the game never has to restart itself (see steam.js for why that breaks mods).
+      const url = g.launchArgs ? `steam://run/${appId}//${encodeURIComponent(g.launchArgs)}/` : `steam://rungameid/${appId}`;
+      try { await shell.openExternal(url); } catch (e) { log(`Couldn't ask Steam to start ${g.name}: ${e.message}`, 'bad'); return false; }
+    } else {
       try { spawn(g.exe, g.launchArgs ? g.launchArgs.split(' ') : [], { cwd: path.dirname(g.exe), detached: true, stdio: 'ignore' }).unref(); }
       catch (e) { log(`Couldn't launch ${g.name}: ${e.message}`, 'bad'); return false; }
     }
-    log(`Launched ${g.name} — its rules are now active`, 'good');
+    log(`Launched ${g.name}${appId ? ' through Steam' : ''} — its triggers are now active`, 'good');
+    // A modded game says hello within a minute or two. If it doesn't, the likely reason is a Steam that a game opened.
+    if (modloader.pluginFor(g, pluginManifest)) {
+      const launchedAt = Date.now();
+      setTimeout(() => {
+        if (lastModHello >= launchedAt) return;
+        log(`${g.name} started, but its BlumMods mod hasn't connected. Fix: close the game, fully quit Steam (right-click its tray icon → Exit), open Steam again, then launch from BlumMods.`, 'warn');
+      }, 120000);
+    }
     return true;
   });
   ipcMain.handle('open-folder', (_e, p) => {
