@@ -387,6 +387,7 @@ let tt = null; // { connection }
 let wantConnected = false;
 let lastRoomId = '';
 let reconnectTimer = null;
+let goLiveAt = 0; // when Go Live was last clicked
 let status = { state: 'offline', text: 'Not connected' };
 const setStatus = (state, text) => { status = { state, text }; send('status', status); };
 const userOf = (u) => ({
@@ -453,8 +454,11 @@ async function connectTikTok() {
   } catch (e) {
     const msg = String(e?.message || e);
     const offline = /offline|not live|UserOffline/i.test(msg + (e?.name || ''));
-    if (wantConnected && data.settings.autoReconnect) {
-      scheduleReconnect(offline ? `@${username} isn't live yet — checking again in 30s…` : `Couldn't connect (${msg}) — retrying in 30s…`, 30000);
+    // Right after Go Live, TikTok often takes a few seconds to show the live, so check every 5 s for 2 minutes, then every 30 s.
+    const fresh = Date.now() - goLiveAt < 120000;
+    const wait = fresh ? 5 : 30;
+    if (wantConnected && (data.settings.autoReconnect || fresh)) {
+      scheduleReconnect(offline ? `@${username} isn't live yet — checking again in ${wait}s…` : `Couldn't connect (${msg}) — retrying in ${wait}s…`, wait * 1000);
     } else setStatus('error', offline ? `@${username} isn't live right now` : `Couldn't connect: ${msg}`);
   }
 }
@@ -653,7 +657,7 @@ function wireIpc() {
     if (portChanged) { try { server.close(); } catch {} startServer(); }
     return true;
   });
-  ipcMain.handle('connect', () => connectTikTok());
+  ipcMain.handle('connect', () => { goLiveAt = Date.now(); return connectTikTok(); });
   ipcMain.handle('refresh-gifts', async () => {
     try { return { ok: true, count: await fetchGiftsDirect() }; } catch { /* fall back to asking through the live room */ }
     try {

@@ -1,1 +1,1 @@
-Drop-down popups in the game: gift events now show the amount big (like -$25,000 CASH) with the viewer's name under it. Sounds can be cut off after N seconds. SHRED: insta reset now starts a brand-new save and insta win plays the ending.
+Go Live connects faster: if TikTok doesn't show you live yet, BlumMods checks again every 5 seconds for the first 2 minutes (was every 30).
