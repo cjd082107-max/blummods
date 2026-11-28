@@ -1,7 +1,7 @@
 // BlumMods rule engine — decides which rules fire for a TikTok Live event.
 // Pure logic (no Electron), so it can be tested on its own.
 
-const MAX_REPEAT_PER_GIFT = 20; // safety cap for "run once per gift in a combo"
+const MAX_REPEAT_PER_GIFT = 100; // safety cap per gift message for "run once per gift in a combo" (streaks now arrive step by step)
 const MAX_LIKE_FIRES = 5;       // safety cap when a huge like burst crosses many milestones
 
 function fillTemplate(text, ev) {

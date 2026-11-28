@@ -74,6 +74,11 @@ namespace BlumMods.MegastoreTidyUp
             {
                 if (_jailUntil > 0 && now >= _jailUntil) EndJail("Jail time is up. The streamer is free.");
                 if (_cell != null) KeepInCell();
+                if (_cell != null && _jailUntil > 0)
+                {
+                    var left = Mathf.CeilToInt(_jailUntil - now);
+                    if (left != _jailLeftSent) { _jailLeftSent = left; SendJailTime(left); }
+                }
                 if (_speedUntil > 0 && now >= _speedUntil) { _speedUntil = 0; ApplySpeed(); Plugin.Say("Speed boost ended."); }
                 if (_slowUntil > 0 && now >= _slowUntil) { _slowUntil = 0; ApplySpeed(); Plugin.Say("Slow walk ended."); }
                 if (_jumpUntil > 0 && now >= _jumpUntil) { _jumpUntil = 0; ApplyJump(); Plugin.Say("Super jump ended."); }
@@ -101,6 +106,7 @@ namespace BlumMods.MegastoreTidyUp
         {
             if (_cell != null)
             {
+                _jailTotal = Mathf.Max(0f, _jailUntil - Time.time) + (float)seconds; // the timer bar fills back up
                 _jailUntil += (float)seconds;
                 Plugin.Say(who + " added " + (int)seconds + "s of jail. " + Left(_jailUntil) + " left.");
                 return;
@@ -108,8 +114,16 @@ namespace BlumMods.MegastoreTidyUp
             _cellCenter = Game.Feet;
             _cell = BuildCell(_cellCenter);
             _jailUntil = Time.time + (float)seconds;
+            _jailTotal = (float)seconds;
             Plugin.Say(who + " threw the streamer in jail for " + (int)seconds + "s. No sorting until it ends.");
         }
+
+        static float _jailTotal;
+        static int _jailLeftSent = -1;
+
+        // Seconds left to the app, which draws the timer box (JailBox). 0 = he is out.
+        static void SendJailTime(int left) =>
+            Bridge.Send("{\"type\":\"jail\",\"left\":" + left + ",\"total\":" + Mathf.CeilToInt(_jailTotal) + "}");
 
         static void Unjail(string who)
         {
@@ -120,6 +134,7 @@ namespace BlumMods.MegastoreTidyUp
         static void EndJail(string msg)
         {
             _jailUntil = 0;
+            _jailLeftSent = -1; SendJailTime(0);
             if (_cell != null) UnityEngine.Object.Destroy(_cell);
             _cell = null;
             Plugin.Say(msg);

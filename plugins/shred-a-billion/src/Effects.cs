@@ -24,7 +24,8 @@ namespace BlumMods.ShredABillion
         // touch it: solid see-through cell, no snap-back, tools frozen, nothing earned.
         static bool _jailed;
         internal static bool Jailed => _jailed;
-        static double _jailUntil, _lastEscapeAt;
+        static double _jailUntil, _lastEscapeAt, _jailTotal;
+        static int _jailLeftSent = -1;
         static Vector3 _cell;
         static Quaternion _preRot;
         static readonly List<GameObject> Cage = new List<GameObject>();
@@ -49,6 +50,7 @@ namespace BlumMods.ShredABillion
             ResetBox.Apply();
             Popups.Apply();
             if (Jailed) TickJail(player);
+            JailBox.Apply(Jailed);
             if (_multiplierWasActive && !MultiplierActive) { _multiplierWasActive = false; Plugin.Say("Money multiplier ended"); }
         }
 
@@ -60,6 +62,7 @@ namespace BlumMods.ShredABillion
                 case "jail":
                 {
                     var seconds = Clamp(c.Num("seconds", 15), 1, 600);
+                    _jailTotal = (_jailed ? Math.Max(0, _jailUntil - Now) : 0) + seconds; // the timer bar fills back up
                     if (_jailed) { _jailUntil += seconds; Plugin.Say("Jail extended by " + seconds + "s" + who); break; }
                     _cell = player.Position; _preRot = player.Root.rotation;
                     _jailed = true; _lastEscapeAt = 0;
@@ -162,6 +165,8 @@ namespace BlumMods.ShredABillion
         static void TickJail(PlayerController player)
         {
             if (Now >= _jailUntil) { EndJail("Jail time is over"); return; }
+            var left = (int)Math.Ceiling(_jailUntil - Now);
+            if (left != _jailLeftSent) { _jailLeftSent = left; SendJailTime(left); }
             // Walls are solid, so he is never moved while inside. This only catches being thrown clear of the cell.
             var p = player.Position;
             float dx = p.x - _cell.x, dz = p.z - _cell.z, dy = p.y - _cell.y;
@@ -175,9 +180,14 @@ namespace BlumMods.ShredABillion
         static void EndJail(string message)
         {
             _jailed = false;
+            _jailLeftSent = -1; SendJailTime(0);
             ClearCage();            // he is free right where he stands
             Plugin.Say(message);
         }
+
+        // Seconds left to the app, which draws the timer box (JailBox). 0 = he is out.
+        static void SendJailTime(int left) =>
+            Bridge.Send("{\"type\":\"jail\",\"left\":" + left + ",\"total\":" + (int)Math.Ceiling(_jailTotal) + "}");
 
         static void ClearCage()
         {

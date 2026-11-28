@@ -182,6 +182,7 @@ function startServer() {
         const msg = JSON.parse(m.toString());
         if (msg.type === 'hello') { lastModHello = Date.now(); mods.set(ws, { game: String(msg.game || 'Mod').slice(0, 60) }); modsStatus(); log(`${msg.game} connected${msg.plugin ? ` (plugin v${msg.plugin})` : ''}`, 'good'); }
         else if (msg.type === 'log') log(`[${mods.get(ws)?.game}] ${String(msg.text || '').slice(0, 300)}`);
+        else if (msg.type === 'jail') jailBox(ws, msg);
       } catch { /* ignore */ }
     });
     ws.on('close', () => { mods.delete(ws); modsStatus(); });
@@ -224,6 +225,7 @@ function broadcast(wss, obj) {
 // ---------- actions ----------
 let keys;
 const engine = new RuleEngine();
+const giftStreaks = new tte.GiftStreaks();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const queue = [];
 let running = false;
@@ -284,13 +286,14 @@ async function pump() {
     send('queue', queue.length);
     try { for (const a of job.actions) await runAction(a, job.ev); }
     catch (e) { log(`Action failed (${job.name}): ${e.message}`, 'bad'); }
+    if (job.gap && queue.length) await sleep(job.gap);
   }
   running = false;
   send('queue', 0);
 }
-function enqueue(name, actions, ev) {
-  if (queue.length > 200) { log('Action queue is full — skipping', 'warn'); return; }
-  queue.push({ name, actions, ev });
+function enqueue(name, actions, ev, gap = 0) {
+  if (queue.length > 400) { log('Action queue is full — skipping', 'warn'); return; }
+  queue.push({ name, actions, ev, gap });
   send('queue', queue.length);
   pump();
 }
@@ -332,6 +335,20 @@ async function giftPicture(url) {
     giftPictures.set(url, out);
     return out;
   } catch (e) { log(`Could not load the save gift picture (${e.message}). The box shows its name instead.`, 'warn'); return ''; }
+}
+// Jail timer: the mod sends {"type":"jail","left":N,"total":T} each second while he is jailed (left 0 when he is out).
+// The box is drawn here, like the reset box, and sent back to that game only.
+const jailSeq = new WeakMap(); // newest jail message per game, so a slow drawing never lands after "hide"
+async function jailBox(ws, msg) {
+  const left = num(msg.left, 0, 0, 36000), total = num(msg.total, left, 0, 36000);
+  const seq = (jailSeq.get(ws) || 0) + 1; jailSeq.set(ws, seq);
+  const reply = (o) => { if (ws.readyState === 1 && jailSeq.get(ws) === seq) ws.send(JSON.stringify(o)); };
+  if (!left) return reply({ type: 'jailbox', hide: true });
+  if (!win || win.isDestroyed()) return;
+  try {
+    const url = await win.webContents.executeJavaScript(`window.drawJailBox(${JSON.stringify({ left, total })})`, true);
+    if (typeof url === 'string') reply({ type: 'jailbox', png: url.replace(/^data:image\/png;base64,/, '') });
+  } catch (e) { log(`Jail timer couldn't be drawn: ${e.message}`, 'warn'); }
 }
 // The save gift is whichever gift triggers a "Save from reset" step for the game being played.
 function saveGift() {
@@ -377,7 +394,9 @@ function handleEvent(ev) {
   if (ev.type === 'like') stats.likes = engine.likeTotal;
   for (const f of fired) {
     stats.fired += f.times;
-    for (let i = 0; i < f.times; i++) enqueue(f.rule.name, f.rule.actions || [], f.ev);
+    // Gifts that fire once per gift are spaced out a little, so 10 Roses are 10 things happening, not one blur.
+    const gap = f.ev.type === 'gift' && f.rule.repeatPerGift ? num(data.settings.comboGapMs, 250, 0, 2000) : 0;
+    for (let i = 0; i < f.times; i++) enqueue(f.rule.name, f.rule.actions || [], f.ev, gap);
   }
   send('event', { ev, fired: fired.map((f) => ({ name: f.rule.name, times: f.times })) });
   send('stats', stats);
@@ -411,7 +430,7 @@ async function connectTikTok() {
   tt = c;
 
   // tiktok-events.js reads both the library's current and older field names.
-  c.on(WebcastEvent.GIFT, (d) => { const ev = tte.giftEvent(d, giftCatalog); if (ev) handleEvent(ev); });
+  c.on(WebcastEvent.GIFT, (d) => { const ev = giftStreaks.event(d, giftCatalog); if (ev) handleEvent(ev); });
   c.on(WebcastEvent.FOLLOW, (d) => handleEvent(tte.simpleEvent('follow', d)));
   c.on(WebcastEvent.SHARE, (d) => handleEvent(tte.simpleEvent('share', d)));
   c.on(WebcastEvent.LIKE, (d) => handleEvent(tte.likeEvent(d)));

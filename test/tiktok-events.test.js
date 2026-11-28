@@ -62,4 +62,27 @@ assert.strictEqual(fired(simpleEvent('follow', { user: user('spam') })), '');
 assert.strictEqual(fired(simpleEvent('follow', { user: user('other') })), 'followx1');
 assert.strictEqual(fired(chatEvent({ content: '!jump', user: user('c') })), 'jumpx1');
 
+// ---- live streaks: each step fires as it arrives (Carter, 2026-11-28: waiting for the end made it all land at once) ----
+{
+  const { GiftStreaks } = require('../src/tiktok-events');
+  const s = new GiftStreaks();
+  const counts = (msgs) => msgs.map((m) => { const ev = s.event(m); return ev ? ev.gift.count : 0; });
+  // x1, x2, x5 (TikTok skips steps when gifts come fast), end x5 repeats the total: 1 + 1 + 3, end adds nothing
+  assert.deepStrictEqual(counts([rose(1), rose(2), rose(5), rose(5, true)]), [1, 1, 3, 0]);
+  // a streak with no end message still fired every gift
+  assert.deepStrictEqual(counts([rose(1), rose(2), rose(3)]), [1, 1, 1]);
+  // ...and a new streak from the same viewer (count drops back) starts over
+  assert.deepStrictEqual(counts([rose(1), rose(2, true)]), [1, 1]);
+  // two viewers' streaks are counted apart
+  const bob = (n) => ({ ...rose(n), user: user('bobby') });
+  assert.deepStrictEqual(counts([rose(1), bob(1), rose(2), bob(3)]), [1, 1, 1, 2]);
+  // non-streak gifts pass straight through
+  assert.strictEqual(s.event({ giftId: '11046', repeatCount: 1, user: user('gal'), gift: { id: '11046', name: 'Galaxy', diamondCount: 1000, type: 2 } }).gift.count, 1);
+  // total over a streak = what the viewer sent
+  const s2 = new GiftStreaks(); let total = 0;
+  for (const n of [1, 3, 4, 9, 10]) total += s2.event(rose(n))?.gift.count || 0;
+  total += s2.event(rose(10, true))?.gift.count || 0;
+  assert.strictEqual(total, 10);
+}
+
 console.log('tiktok-events: all passed');

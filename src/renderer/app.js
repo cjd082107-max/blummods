@@ -520,7 +520,7 @@ function openRuleModal(rule, gameId, sel = 'when') {
       ${t.type === 'gift' ? `
         <div class="prow"><label>Which gift<small>Empty means any gift</small></label><div class="gift-field">${giftImg(findGift(t.giftName))}<input id="tGiftName" autocomplete="off" value="${esc(t.giftName)}" placeholder="any gift"><button class="btn small" id="tGiftBrowse">Browse</button></div></div>
         <div class="prow"><label>Worth at least<small>Coins per gift, 0 for no limit</small></label>${stepper('id="tMin"', t.minDiamonds || 0, 0)}</div>
-        <div class="prow"><label>Combos<small>x5 roses fires 5 times (max 20)</small></label><label class="chk"><input type="checkbox" id="tRepeat" ${r.repeatPerGift ? 'checked' : ''}> Fire once for each gift in a combo</label></div>` : ''}
+        <div class="prow"><label>Combos<small>x5 roses fires 5 times, as they arrive</small></label><label class="chk"><input type="checkbox" id="tRepeat" ${r.repeatPerGift ? 'checked' : ''}> Fire once for each gift in a combo</label></div>` : ''}
       ${t.type === 'like' ? `<div class="prow"><label>Every<small>likes</small></label>${stepper('id="tLikes"', t.likeEvery || 100, 1)}</div>` : ''}
       ${t.type === 'chat' ? `<div class="prow"><label>Chat says<small>Empty means every message</small></label><input id="tCmd" value="${esc(t.command)}" placeholder="!jump"></div>` : ''}
       <div class="prow"><label>Cooldown<small>Seconds to ignore repeats</small></label>${stepper('id="rCd"', r.cooldownSec || 0, 0)}</div>
@@ -992,5 +992,31 @@ window.drawPopup = (p) => {
   const mid = left + (W - 40 - left) / 2;
   fit(p.text, 58, 900, W - 40 - left - 20); x.fillStyle = color; x.fillText(p.text, mid, 82);
   fit(p.name, 28, 700, W - 40 - left - 20); x.fillStyle = '#ffffff'; x.fillText(p.name, mid, 120);
+  return cv.toDataURL('image/png');
+};
+
+// ---------- jail timer: the mod reports the seconds left, this draws the box it shows at the bottom middle ----------
+window.drawJailBox = (j) => {
+  const W = 520, H = 170, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const x = cv.getContext('2d');
+  const left = Math.max(0, Math.round(j.left || 0)), total = Math.max(left, Math.round(j.total || left) || 1);
+  const color = left <= 5 ? '#3ddc84' : '#ff8a2a'; // turns green when he is about to get out
+  x.beginPath(); x.roundRect(10, 10, W - 20, H - 20, 30);
+  x.fillStyle = 'rgba(11,11,18,0.72)'; x.shadowColor = color; x.shadowBlur = 14; x.fill();
+  x.shadowBlur = 0; x.lineWidth = 5; x.strokeStyle = color; x.stroke();
+  x.shadowColor = 'rgba(0,0,0,0.85)'; x.shadowBlur = 6;
+  // lock picture
+  x.font = '78px "Segoe UI Emoji"'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('🔒', 82, 80);
+  x.textBaseline = 'alphabetic';
+  const mid = 150 + (W - 40 - 150) / 2;
+  x.font = '800 30px "Segoe UI", system-ui, sans-serif'; x.fillStyle = '#ffffff'; x.fillText('JAILED', mid, 52);
+  const m = Math.floor(left / 60), s = String(left % 60).padStart(2, '0');
+  x.font = '900 72px "Segoe UI", system-ui, sans-serif'; x.fillStyle = color; x.fillText(`${m}:${s}`, mid, 120);
+  // bar that runs down with the time
+  x.shadowBlur = 0;
+  const bx = 150, bw = W - 40 - 150, frac = Math.max(0, Math.min(1, left / total));
+  x.beginPath(); x.roundRect(bx, 136, bw, 12, 6); x.fillStyle = '#ffffff22'; x.fill();
+  if (frac > 0) { x.beginPath(); x.roundRect(bx, 136, Math.max(12, bw * frac), 12, 6); x.fillStyle = color; x.fill(); }
   return cv.toDataURL('image/png');
 };

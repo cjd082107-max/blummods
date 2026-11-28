@@ -61,6 +61,12 @@ namespace BlumMods.MegastoreTidyUp
             t.Start();
         }
 
+        // A ready-made JSON message for the app (the jail timer uses it).
+        internal static void Send(string json)
+        {
+            if (Outgoing.Count < 200) Outgoing.Enqueue(json);
+        }
+
         internal static void Log(string text)
         {
             if (Outgoing.Count < 200) Outgoing.Enqueue("{\"type\":\"log\",\"text\":\"" + Esc(text) + "\"}");
@@ -100,6 +106,7 @@ namespace BlumMods.MegastoreTidyUp
                                     {
                                         if (json.StartsWith("{\"type\":\"resetbox\"", StringComparison.Ordinal)) ResetBox.Receive(json);
                                         else if (json.StartsWith("{\"type\":\"popup\"", StringComparison.Ordinal)) Popups.Receive(json);
+                                        else if (json.StartsWith("{\"type\":\"jailbox\"", StringComparison.Ordinal)) JailBox.Receive(json);
                                         else if (json.Contains("\"command\"")) Incoming.Enqueue(new Command(json));
                                     }
                                     catch (Exception e) { Plugin.L.LogWarning("Skipped a message from the app: " + e.Message); }

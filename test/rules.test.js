@@ -5,7 +5,8 @@ const R = (id, trigger, x = {}) => ({ id, name: id, enabled: true, trigger, acti
 const rules = [R('rose', { type: 'gift', giftName: 'Rose' }, { repeatPerGift: true }), R('big', { type: 'gift', minDiamonds: 100 }),
   R('likes', { type: 'like', likeEvery: 100 }), R('jump', { type: 'chat', command: '!jump' }, { cooldownSec: 5 }), R('fol', { type: 'follow' })];
 const m = (ev) => e.match(ev, rules).map((f) => f.rule.id + ':' + f.times);
-assert.deepEqual(m({ type: 'gift', user: u, gift: { name: 'rose', diamonds: 1, count: 30 } }), ['rose:20']);
+assert.deepEqual(m({ type: 'gift', user: u, gift: { name: 'rose', diamonds: 1, count: 30 } }), ['rose:30']);
+assert.deepEqual(m({ type: 'gift', user: u, gift: { name: 'rose', diamonds: 1, count: 500 } }), ['rose:100'], 'cap per message');
 assert.deepEqual(m({ type: 'gift', user: u, gift: { name: 'Galaxy', diamonds: 1000, count: 1 } }), ['big:1']);
 assert.deepEqual(m({ type: 'like', user: u, likeCount: 99 }), []);
 assert.deepEqual(m({ type: 'like', user: u, likeCount: 1 }), ['likes:1']);
