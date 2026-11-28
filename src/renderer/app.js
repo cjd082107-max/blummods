@@ -908,3 +908,60 @@ function renderAll() {
   if (init.update?.state && init.update.state !== 'idle') showUpdate(init.update);
   if (init.mods.length) $('#modsInfo').textContent = `🟢 ${init.mods.map((m) => m.game).join(', ')}`;
 })();
+
+// ---------- reset timer box ----------
+// The app draws the box here and sends it to the game as a picture, once per second (see resettimer.js).
+// Game mods only have to show that picture in the middle of the screen, so every game gets the same box.
+const resetPics = new Map();
+function resetPic(src) {
+  if (!src) return Promise.resolve(null);
+  if (resetPics.has(src)) return resetPics.get(src);
+  const p = new Promise((done) => { const im = new Image(); im.onload = () => done(im); im.onerror = () => done(null); im.src = src; });
+  resetPics.set(src, p);
+  return p;
+}
+window.drawResetBox = async (st) => {
+  const W = 600, H = 600, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const x = cv.getContext('2d');
+  const color = st.phase === 'saved' ? '#3ddc84' : st.phase === 'reset' ? '#ff4d6a' : st.remaining <= 10 ? '#ff4d6a' : '#fe2c55';
+  const font = (px, w = 900) => `${w} ${px}px "Segoe UI", system-ui, sans-serif`;
+  const text = (t, y, px, fill = '#fff', w = 900, max = W - 70) => {
+    x.font = font(px, w);
+    while (x.measureText(t).width > max && px > 14) { px -= 2; x.font = font(px, w); }
+    x.fillStyle = fill; x.fillText(t, W / 2, y);
+  };
+  const round = (rx, ry, rw, rh, r) => { x.beginPath(); x.roundRect(rx, ry, rw, rh, r); };
+  // box
+  round(14, 14, W - 28, H - 28, 34);
+  x.fillStyle = 'rgba(11,11,18,0.93)'; x.shadowColor = color; x.shadowBlur = 26; x.fill();
+  x.shadowBlur = 0; x.lineWidth = 7; x.strokeStyle = color; x.stroke();
+  x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  // gift picture
+  const pic = await resetPic(st.gift?.image);
+  const gy = 58, gs = 190;
+  x.save(); x.shadowColor = color; x.shadowBlur = 30;
+  if (pic) x.drawImage(pic, (W - gs) / 2, gy, gs, gs);
+  else { x.font = '150px "Segoe UI Emoji"'; x.textBaseline = 'middle'; x.fillText('🎁', W / 2, gy + gs / 2); x.textBaseline = 'alphabetic'; }
+  x.restore();
+  if (st.phase === 'count') {
+    text('SAVE RESET', 318, 64, '#fff');
+    const m = Math.floor(st.remaining / 60), s = String(st.remaining % 60).padStart(2, '0');
+    text(`${m}:${s}`, 446, 130, st.remaining <= 10 ? '#ff4d6a' : '#25f4ee');
+    // bar that runs down with the timer
+    const bw = W - 120, frac = Math.max(0, Math.min(1, st.remaining / st.total));
+    round(60, 474, bw, 18, 9); x.fillStyle = '#ffffff22'; x.fill();
+    if (frac > 0) { round(60, 474, Math.max(18, bw * frac), 18, 9); x.fillStyle = color; x.fill(); }
+    text(st.gift?.name ? `Send a ${st.gift.name} to save the run!` : 'No save gift is set up!', 530, 30, '#fff', 800);
+    text(`${st.who} started a reset`, 566, 22, '#c9c9d6', 600);
+  } else if (st.phase === 'saved') {
+    text('SAVED!', 360, 104, '#3ddc84');
+    text(`${st.saver} saved the run`, 440, 36, '#fff', 800);
+    text(`with ${st.remaining}s left`, 490, 28, '#c9c9d6', 600);
+  } else {
+    text('RESET!', 360, 104, '#ff4d6a');
+    text('Back to a brand-new game', 440, 36, '#fff', 800);
+    text(`${st.who} got you`, 490, 28, '#c9c9d6', 600);
+  }
+  return cv.toDataURL('image/png');
+};

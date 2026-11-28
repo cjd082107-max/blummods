@@ -5,7 +5,7 @@
     "Megastore Tidy Up Together.exe"
   ],
   "file": "BlumMods.MegastoreTidyUp.dll",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "actions": [
     {
       "id": "jail",
@@ -347,19 +347,29 @@
       "params": []
     },
     {
-      "id": "reset_with_backup",
-      "label": "Reset (backup kept)",
+      "id": "reset_timer",
+      "label": "Reset timer",
       "category": "Hurts",
-      "icon": "💾",
-      "desc": "Starts this store over and keeps a backup of its save in BlumMods backups, so it can be restored later.",
-      "params": []
+      "icon": "⏳",
+      "desc": "Puts a countdown box in the middle of the screen with your save gift. If nobody sends the save gift before it hits 0, the save is wiped back to a brand-new game (a backup is still made first). Make a separate trigger with \"Save from reset\" for the gift that saves you.",
+      "params": [
+        {
+          "id": "seconds",
+          "name": "Countdown",
+          "label": "seconds",
+          "default": 60,
+          "min": 5,
+          "max": 3600,
+          "step": 5
+        }
+      ]
     },
     {
-      "id": "save_reset",
-      "label": "Save reset",
-      "category": "Hurts",
-      "icon": "☠️",
-      "desc": "Wipes every store back to brand new and returns to the menu. All save files are backed up first, just in case.",
+      "id": "save_from_reset",
+      "label": "Save from reset",
+      "category": "Helps",
+      "icon": "🛟",
+      "desc": "Stops a running reset timer, so the current save is kept. Put this on the gift that should save you; that gift picture shows in the countdown box.",
       "params": []
     }
   ]

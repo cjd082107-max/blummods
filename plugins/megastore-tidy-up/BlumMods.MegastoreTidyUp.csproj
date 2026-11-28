@@ -4,7 +4,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>BlumMods.MegastoreTidyUp</AssemblyName>
     <RootNamespace>BlumMods.MegastoreTidyUp</RootNamespace>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <DebugType>none</DebugType>
   </PropertyGroup>

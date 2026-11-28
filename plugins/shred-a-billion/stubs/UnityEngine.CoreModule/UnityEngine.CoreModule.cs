@@ -8,11 +8,29 @@ namespace UnityEngine
     public struct Quaternion { public float x; public float y; public float z; public float w; }
     public struct Color { public float r; public float g; public float b; public float a; }
     public enum PrimitiveType { Sphere, Capsule, Cylinder, Cube, Plane, Quad }
+    public struct Vector2 { public float x; public float y; }
+    public enum TextureFormat { RGBA32 = 4 }
+    public static class Screen { public static int width => throw null; public static int height => throw null; }
+    public class Texture2D : Texture
+    {
+        public Texture2D(IntPtr pointer) : base(pointer) { }
+        public Texture2D(int width, int height, TextureFormat textureFormat, bool mipChain) : base(IntPtr.Zero) { }
+    }
+    public class RectTransform : Transform
+    {
+        public RectTransform(IntPtr pointer) : base(pointer) { }
+        public Vector2 anchorMin { set => throw null; }
+        public Vector2 anchorMax { set => throw null; }
+        public Vector2 pivot { set => throw null; }
+        public Vector2 anchoredPosition { set => throw null; }
+        public Vector2 sizeDelta { set => throw null; }
+    }
     public class Object : Il2CppObjectBase
     {
         public Object(IntPtr pointer) : base(pointer) { }
         public string name { get => throw null; set => throw null; }
         public static void Destroy(Object obj) => throw null;
+        public static void DontDestroyOnLoad(Object target) => throw null;
     }
     public class Component : Object
     {
@@ -28,10 +46,14 @@ namespace UnityEngine
         public Vector3 position { get => throw null; set => throw null; }
         public Vector3 localScale { set => throw null; }
         public Quaternion rotation { get => throw null; set => throw null; }
+        public void SetParent(Transform parent, bool worldPositionStays) => throw null;
     }
     public class GameObject : Object
     {
         public GameObject(IntPtr pointer) : base(pointer) { }
+        public GameObject(string name) : base(IntPtr.Zero) { }
+        public T AddComponent<T>() where T : Component => throw null;
+        public void SetActive(bool value) => throw null;
         public static GameObject CreatePrimitive(PrimitiveType type) => throw null;
         public Transform transform => throw null;
         public T GetComponent<T>() => throw null;

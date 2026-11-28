@@ -12,7 +12,7 @@ namespace BlumMods.MegastoreTidyUp
     public class Plugin : BaseUnityPlugin
     {
         public const string Id = "blummods.megastoretidyup";
-        public const string Version = "0.2.0";
+        public const string Version = "0.3.0";
         internal static ManualLogSource L;
         internal static Plugin Instance;
 
@@ -67,6 +67,12 @@ namespace BlumMods.MegastoreTidyUp
         {
             while (Bridge.Incoming.TryDequeue(out var cmd)) Effects.Run(cmd);
             Effects.Tick();
+            ResetBox.Apply();
+        }
+
+        void OnGUI()
+        {
+            ResetBox.Draw();
         }
 
         internal static void Say(string text)

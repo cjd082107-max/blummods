@@ -1,1 +1,1 @@
-Each game now has its own triggers: click ⚡ Triggers on a game to open its panel. Key presses have their own section with one on/off switch. The Gifts and Triggers pages are gone (gifts are in the trigger's gift dropdown).
+New Reset timer: a countdown box with your save gift pops up in the middle of the game. If nobody sends the save gift before 0, the save is wiped. Add a "Save from reset" trigger for the gift that saves you. (Replaces Reset (backup kept) and Save reset.)

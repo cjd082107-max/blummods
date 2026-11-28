@@ -46,6 +46,7 @@ namespace BlumMods.ShredABillion
                 try { Run(cmd, player); }
                 catch (Exception e) { Fail("'" + cmd.Name + "'", e); }
             }
+            ResetBox.Apply();
             if (Jailed) TickJail(player);
             if (_multiplierWasActive && !MultiplierActive) { _multiplierWasActive = false; Plugin.Say("Money multiplier ended"); }
         }

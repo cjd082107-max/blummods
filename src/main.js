@@ -11,6 +11,7 @@ const { Updater } = require('./updater');
 const { toTikFinity } = require('./feed');
 const modloader = require('./modloader');
 const autoadd = require('./autoadd');
+const { ResetTimer } = require('./resettimer');
 
 app.setName('BlumMods');
 if (process.platform === 'win32') app.setAppUserModelId('com.blummods.app');
@@ -244,6 +245,9 @@ async function runAction(a, ev) {
       if (!mods.size) log(`Mod command "${a.command}" sent, but no game mod is connected`, 'warn');
       break;
     case 'game': {
+      // The reset timer runs here in the app; the game is only sent the box picture and, at zero, save_reset.
+      if (a.action === 'reset_timer') { await startResetTimer(a, ev); break; }
+      if (a.action === 'save_from_reset') { resetTimer.save(ev.user?.nickname || ev.user?.uniqueId || 'Someone'); break; }
       const params = a.params || {};
       const flat = Object.fromEntries(Object.entries(params).map(([k, v]) => ['p_' + k, Number(v) || 0]));
       broadcast(modWss, {
@@ -286,6 +290,52 @@ function enqueue(name, actions, ev) {
   send('queue', queue.length);
   pump();
 }
+// ---------- reset timer (see resettimer.js) ----------
+const giftPictures = new Map(); // gift image url -> data: url, so the box can be drawn (a canvas can't export a picture from TikTok's site)
+async function giftPicture(url) {
+  if (!/^https:/.test(url || '')) return '';
+  if (giftPictures.has(url)) return giftPictures.get(url);
+  try {
+    const res = await net.fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > 2e6) throw new Error('too big');
+    const type = (res.headers.get('content-type') || 'image/png').split(';')[0];
+    const out = `data:${type};base64,${buf.toString('base64')}`;
+    giftPictures.set(url, out);
+    return out;
+  } catch (e) { log(`Could not load the save gift picture (${e.message}). The box shows its name instead.`, 'warn'); return ''; }
+}
+// The save gift is whichever gift triggers a "Save from reset" step for the game being played.
+function saveGift() {
+  const r = activeRules().find((x) => x.trigger.type === 'gift' && x.trigger.giftName && x.actions.some((a) => a.kind === 'game' && a.action === 'save_from_reset'));
+  if (!r) return null;
+  const g = giftCatalog.find((x) => x.name.toLowerCase() === r.trigger.giftName.trim().toLowerCase());
+  return { name: g?.name || r.trigger.giftName, url: g?.image || '' };
+}
+const resetTimer = new ResetTimer({
+  draw: async (st) => {
+    if (!win || win.isDestroyed()) return '';
+    const url = await win.webContents.executeJavaScript(`window.drawResetBox(${JSON.stringify(st)})`, true);
+    return typeof url === 'string' ? url.replace(/^data:image\/png;base64,/, '') : '';
+  },
+  show: (png) => broadcast(modWss, { type: 'resetbox', png }),
+  hide: () => broadcast(modWss, { type: 'resetbox', hide: true }),
+  reset: (who) => {
+    broadcast(modWss, { type: 'command', command: 'save_reset', params: {}, event: 'reset_timer', user: '', nickname: who });
+    if (!mods.size) log('The reset timer ran out, but the game is not connected, so nothing was reset.', 'warn');
+  },
+  log,
+});
+async function startResetTimer(a, ev) {
+  const who = ev.user?.nickname || ev.user?.uniqueId || 'Someone';
+  if (resetTimer.active) { resetTimer.start({ who }); return; } // only logs that one is already counting down
+  if (!mods.size) { log('Reset timer sent, but the game is not connected, so it was not started.', 'warn'); return; }
+  const g = saveGift();
+  const gift = g ? { name: g.name, image: await giftPicture(g.url) } : null;
+  resetTimer.start({ seconds: num(a.params?.seconds, 60, 5, 3600), who, gift });
+}
+
 function activeRules() {
   // Game triggers belong to one game; key-press triggers (no game) are universal and share one master switch.
   return data.rules.filter((r) => r.enabled && (r.gameId ? r.gameId === data.activeGameId : data.settings.keysOn !== false));

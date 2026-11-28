@@ -85,7 +85,8 @@ namespace BlumMods.MegastoreTidyUp
                                 if (r.EndOfMessage)
                                 {
                                     var json = sb.ToString(); sb.Clear();
-                                    if (json.Contains("\"command\"")) Incoming.Enqueue(new Command(json));
+                                    if (json.StartsWith("{\"type\":\"resetbox\"")) ResetBox.Receive(json);
+                                    else if (json.Contains("\"command\"")) Incoming.Enqueue(new Command(json));
                                 }
                                 receive = ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                             }
