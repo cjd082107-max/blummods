@@ -1,1 +1,1 @@
-Go Live connects faster: if TikTok doesn't show you live yet, BlumMods checks again every 5 seconds for the first 2 minutes (was every 30).
+Fixes Go Live not connecting: TikTok's signing service started charging for an extra gift-list step BlumMods used while connecting. That step is gone; gifts still come through with name and coins.

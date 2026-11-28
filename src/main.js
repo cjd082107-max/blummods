@@ -406,7 +406,9 @@ async function connectTikTok() {
   try { lib = await import('tiktok-live-connector'); }
   catch (e) { setStatus('error', 'TikTok library failed to load: ' + e.message); return; }
   const { TikTokLiveConnection, WebcastEvent, ControlEvent } = lib;
-  const opts = { enableExtendedGiftInfo: true };
+  // No enableExtendedGiftInfo: since 2026-11 that gift-list request needs a paid Euler Stream plan and made every
+  // connect fail ("requires a Business plan"). Gift messages still carry name, coins and picture without it.
+  const opts = { enableExtendedGiftInfo: false };
   if (data.settings.signApiKey) opts.signApiKey = data.settings.signApiKey;
   const c = new TikTokLiveConnection(username, opts);
   tt = c;
