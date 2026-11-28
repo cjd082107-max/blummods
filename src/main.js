@@ -13,6 +13,7 @@ const modloader = require('./modloader');
 const autoadd = require('./autoadd');
 const { ResetTimer } = require('./resettimer');
 const { steamAppId, isRunning, steamOpenedByGame } = require('./steam');
+const tte = require('./tiktok-events');
 
 app.setName('BlumMods');
 if (process.platform === 'win32') app.setAppUserModelId('com.blummods.app');
@@ -390,10 +391,6 @@ let reconnectTimer = null;
 let goLiveAt = 0; // when Go Live was last clicked
 let status = { state: 'offline', text: 'Not connected' };
 const setStatus = (state, text) => { status = { state, text }; send('status', status); };
-const userOf = (u) => ({
-  uniqueId: u?.uniqueId || '', nickname: u?.nickname || u?.uniqueId || '', userId: u?.userId ? String(u.userId) : '',
-  avatar: u?.profilePicture?.url?.[0] || '',
-});
 
 async function connectTikTok() {
   const username = String(data.settings.username || '').trim().replace(/^@/, '');
@@ -413,23 +410,13 @@ async function connectTikTok() {
   const c = new TikTokLiveConnection(username, opts);
   tt = c;
 
-  c.on(WebcastEvent.GIFT, (d) => {
-    const g = d.giftDetails || {};
-    if (g.giftType === 1 && !d.repeatEnd) return; // streak still going; wait for the end
-    handleEvent({
-      type: 'gift', user: userOf(d.user),
-      gift: {
-        id: d.giftId, giftType: g.giftType, name: g.giftName || d.extendedGiftInfo?.name || `Gift ${d.giftId}`,
-        diamonds: g.diamondCount || d.extendedGiftInfo?.diamond_count || 0,
-        count: d.repeatCount || 1, image: g.giftImage?.url?.[0] || giftCatalog.find((x) => String(x.id) === String(d.giftId))?.image || '',
-      },
-    });
-  });
-  c.on(WebcastEvent.FOLLOW, (d) => handleEvent({ type: 'follow', user: userOf(d.user) }));
-  c.on(WebcastEvent.SHARE, (d) => handleEvent({ type: 'share', user: userOf(d.user) }));
-  c.on(WebcastEvent.LIKE, (d) => handleEvent({ type: 'like', user: userOf(d.user), likeCount: d.likeCount || 1 }));
-  c.on(WebcastEvent.CHAT, (d) => handleEvent({ type: 'chat', user: userOf(d.user), comment: d.comment || '' }));
-  c.on(WebcastEvent.MEMBER, (d) => handleEvent({ type: 'join', user: userOf(d.user) }));
+  // tiktok-events.js reads both the library's current and older field names.
+  c.on(WebcastEvent.GIFT, (d) => { const ev = tte.giftEvent(d, giftCatalog); if (ev) handleEvent(ev); });
+  c.on(WebcastEvent.FOLLOW, (d) => handleEvent(tte.simpleEvent('follow', d)));
+  c.on(WebcastEvent.SHARE, (d) => handleEvent(tte.simpleEvent('share', d)));
+  c.on(WebcastEvent.LIKE, (d) => handleEvent(tte.likeEvent(d)));
+  c.on(WebcastEvent.CHAT, (d) => handleEvent(tte.chatEvent(d)));
+  c.on(WebcastEvent.MEMBER, (d) => handleEvent(tte.simpleEvent('join', d)));
   c.on(WebcastEvent.STREAM_END, () => { log('Your stream ended'); wantConnected = false; setStatus('offline', 'Stream ended'); });
   c.on(ControlEvent.DISCONNECTED, () => {
     if (tt !== c) return;

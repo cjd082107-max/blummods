@@ -1,1 +1,1 @@
-Fixes Go Live not connecting: TikTok's signing service started charging for an extra gift-list step BlumMods used while connecting. That step is gone; gifts still come through with name and coins.
+Fixes triggers reading TikTok wrong: likes now count every tap (100 likes = 100), gift triggers match the gift name again, Rose streaks fire once per Rose, follow spam counts once per person, and chat commands work.
