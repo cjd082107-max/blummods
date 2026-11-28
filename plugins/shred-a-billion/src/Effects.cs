@@ -47,6 +47,7 @@ namespace BlumMods.ShredABillion
                 catch (Exception e) { Fail("'" + cmd.Name + "'", e); }
             }
             ResetBox.Apply();
+            Popups.Apply();
             if (Jailed) TickJail(player);
             if (_multiplierWasActive && !MultiplierActive) { _multiplierWasActive = false; Plugin.Say("Money multiplier ended"); }
         }
@@ -128,28 +129,23 @@ namespace BlumMods.ShredABillion
                 case "insta_win":
                 {
                     if (!Pile.Ready) { Plugin.Say("The bill pile isn't loaded yet. Start a run first."); break; }
+                    // Emptying the pile alone isn't the win: the game's ending (FinaleDirector) is what a won run plays.
                     var left = Pile.Remaining;
                     var gone = Pile.Remove(player.Position, Math.Max(1, left));
-                    Plugin.Say("INSTA WIN" + who + ": cleared " + gone.ToString("N0") + " bills · " + Pile.Remaining.ToString("N0") + " left");
+                    var ending = Pile.PlayEnding();
+                    Plugin.Say("INSTA WIN" + who + ": cleared " + gone.ToString("N0") + " bills" + (ending == null ? ", playing the ending" : ". The ending didn't start: " + ending));
                     break;
                 }
                 // ---- resets: every one backs up the save first ----
+                // Carter (2026-11-27): insta reset must be a brand-new save, the same wipe the reset timer does at 0.
                 case "insta_reset":
                 case "reset_with_backup":
-                {
-                    var actions = StreamSystem.Instance != null ? StreamSystem.Instance._actions : null;
-                    if (actions == null) { Plugin.Say("Reset needs the game's stream mode running (start a stream run in the game)"); break; }
-                    var backup = Pile.BackupSave();
-                    actions.FullReset();
-                    Plugin.Say((c.Name == "insta_reset" ? "INSTA RESET" : "RESET") + who + ": the run starts over" + (backup != null ? ". Save backed up first." : "."));
-                    break;
-                }
                 case "save_reset":
                 {
                     var backup = Pile.BackupSave();
                     if (Economy != null) Economy.ResetToNew();
                     if (Pile.Ready) Pile.ResetToNew();
-                    Plugin.Say("SAVE RESET" + who + ": back to a brand-new game" + (backup != null ? ". The old save is backed up in BlumMods backups." : "."));
+                    Plugin.Say((c.Name == "insta_reset" ? "INSTA RESET" : "SAVE RESET") + who + ": back to a brand-new game" + (backup != null ? ". The old save is backed up in BlumMods backups." : "."));
                     break;
                 }
                 default:

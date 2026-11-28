@@ -358,7 +358,7 @@ const chipHTML = (icon, title, sub, cls = '') => `<span class="chip2 ${cls}"><sp
 const whenChip = (t, cls = '') => { const w = whenParts(t); return chipHTML(w.icon, w.title, w.sub, cls); };
 function stepChip(a, gameId, cls = '') { const ev = eventFor(a, gameId); return chipHTML(`<span class="gimg ph">${esc(ev.icon)}</span>`, esc(ev.label), esc(stepSub(a, ev)), cls); }
 const soundName = (a) => (a.file || '').split(/[\\/]/).pop().replace(/^\d+-/, '') || 'no file yet';
-const soundChip = (a, cls = '') => (a ? chipHTML('<span class="gimg ph">🎵</span>', esc(soundName(a)), `Volume ${esc(a.volume ?? 80)}%`, cls) : `<span class="chip2 dashed ${cls}"><span class="c-tx"><b>＋ Add sound</b></span></span>`);
+const soundChip = (a, cls = '') => (a ? chipHTML('<span class="gimg ph">🎵</span>', esc(soundName(a)), `Volume ${esc(a.volume ?? 80)}%${a.seconds ? ` · ${esc(a.seconds)}s` : ''}`, cls) : `<span class="chip2 dashed ${cls}"><span class="c-tx"><b>＋ Add sound</b></span></span>`);
 
 // Redraw whatever trigger lists are on screen after a change.
 function refreshTriggerViews() {
@@ -576,7 +576,8 @@ function openRuleModal(rule, gameId, sel = 'when') {
       <p class="ev-desc">Plays a sound from BlumMods when this trigger fires. Your stream picks it up along with the rest of your PC audio.</p>
       <div class="pdivider"></div>
       <div class="prow"><label>File<small>mp3, wav, ogg or m4a</small></label><button class="btn small" id="sndPick">${sound?.file ? 'Change sound' : 'Choose a sound'}</button><span class="unit">${sound ? esc(soundName(sound)) : ''}</span></div>
-      ${sound ? `<div class="prow"><label>Volume</label><input id="sndVol" type="range" min="0" max="100" value="${esc(sound.volume ?? 80)}" style="width:220px;padding:0"><span class="unit" id="sndVolTx">${esc(sound.volume ?? 80)}%</span></div>` : ''}
+      ${sound ? `<div class="prow"><label>Volume</label><input id="sndVol" type="range" min="0" max="100" value="${esc(sound.volume ?? 80)}" style="width:220px;padding:0"><span class="unit" id="sndVolTx">${esc(sound.volume ?? 80)}%</span></div>
+      <div class="prow"><label>Play for<small>0 = the whole sound</small></label>${stepper('id="sndSecs"', sound.seconds ?? 0, 0, 600, 1)}<span class="unit">seconds</span></div>` : ''}
     </div>`;
 
   const draw = () => {
@@ -629,8 +630,9 @@ function openRuleModal(rule, gameId, sel = 'when') {
       if ($('#tLikes')) $('#tLikes').oninput = (e) => (t.likeEvery = Math.max(1, Number(e.target.value) || 100));
       if ($('#tCmd')) $('#tCmd').oninput = (e) => (t.command = e.target.value);
     } else if (ui.sel === 'sound') {
-      $('#sndPick').onclick = async () => { const f = await blum.pickSound(); if (f) { sound = { kind: 'sound', file: f, volume: sound?.volume ?? 80 }; draw(); } };
+      $('#sndPick').onclick = async () => { const f = await blum.pickSound(); if (f) { sound = { kind: 'sound', file: f, volume: sound?.volume ?? 80, seconds: sound?.seconds ?? 0 }; draw(); } };
       if ($('#sndVol')) $('#sndVol').oninput = (e) => { sound.volume = Number(e.target.value); $('#sndVolTx').textContent = sound.volume + '%'; };
+      if ($('#sndSecs')) $('#sndSecs').oninput = () => { sound.seconds = Math.max(0, Number($('#sndSecs').value) || 0); };
       if ($('#sndTest')) $('#sndTest').onclick = () => blum.testActions({ name: 'Sound', actions: [sound] });
       if ($('#sndRemove')) $('#sndRemove').onclick = () => { sound = null; draw(); };
     } else {
@@ -769,7 +771,13 @@ function showFeed(f) {
 blum.on('feed', showFeed);
 blum.on('queue', (n) => ($('#queueInfo').textContent = n ? `${n} action${n === 1 ? '' : 's'} queued` : ''));
 blum.on('alert', (a) => toast(a.text, a.color));
-blum.on('play-sound', ({ url, volume }) => { const au = new Audio(url); au.volume = Math.max(0, Math.min(1, volume)); au.play().catch(() => {}); });
+// seconds > 0 cuts the sound off after that long, with a short fade so it doesn't click.
+blum.on('play-sound', ({ url, volume, seconds }) => {
+  const au = new Audio(url); const vol = Math.max(0, Math.min(1, volume)); au.volume = vol; au.play().catch(() => {});
+  if (seconds > 0) setTimeout(() => {
+    let v = vol; const fade = setInterval(() => { v -= vol / 6; if (v <= 0) { clearInterval(fade); au.pause(); } else au.volume = v; }, 40);
+  }, Math.max(0, seconds * 1000 - 240));
+});
 blum.on('gift-list', (list) => { GIFTS = list; GIFTS_REAL = true; renderGiftList(); });
 blum.on('status', setStatus);
 
@@ -963,5 +971,24 @@ window.drawResetBox = async (st) => {
     text('Back to a brand-new game', 440, 36, '#fff', 800);
     text(`${st.who} got you`, 490, 28, '#c9c9d6', 600);
   }
+  return cv.toDataURL('image/png');
+};
+
+// ---------- drop-down popups (see showPopup in main.js) ----------
+window.drawPopup = (p) => {
+  const W = 620, H = 150, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const x = cv.getContext('2d');
+  const color = p.tone === 'bad' ? '#ff4d6a' : '#3ddc84';
+  x.beginPath(); x.roundRect(10, 10, W - 20, H - 20, 26);
+  x.fillStyle = 'rgba(11,11,18,0.9)'; x.shadowColor = color; x.shadowBlur = 18; x.fill();
+  x.shadowBlur = 0; x.lineWidth = 5; x.strokeStyle = color; x.stroke();
+  x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  const fit = (t, px, w, max) => { x.font = `${w} ${px}px "Segoe UI", system-ui, sans-serif`; while (x.measureText(t).width > max && px > 14) { px -= 2; x.font = `${w} ${px}px "Segoe UI", system-ui, sans-serif`; } };
+  const left = p.icon ? 100 : 40;
+  if (p.icon) { x.font = '56px "Segoe UI Emoji"'; x.textBaseline = 'middle'; x.fillText(p.icon, 66, H / 2 + 2); x.textBaseline = 'alphabetic'; }
+  const mid = left + (W - 40 - left) / 2;
+  fit(p.text, 58, 900, W - 40 - left - 20); x.fillStyle = color; x.fillText(p.text, mid, 82);
+  fit(p.name, 28, 700, W - 40 - left - 20); x.fillStyle = '#ffffff'; x.fillText(p.name, mid, 120);
   return cv.toDataURL('image/png');
 };

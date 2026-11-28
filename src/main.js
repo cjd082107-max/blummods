@@ -40,7 +40,7 @@ function cleanAction(a) {
     case 'key': return { kind: 'key', key: str(a.key, 40), holdMs: num(a.holdMs, 80, 20, 10000), repeat: num(a.repeat, 1, 1, 50) };
     case 'mod': return { kind: 'mod', command: str(a.command, 100), args: str(a.args, 300) };
     case 'alert': return { kind: 'alert', text: str(a.text, 300), color: /^#[0-9a-f]{6}$/i.test(a.color) ? a.color : '#25f4ee', seconds: num(a.seconds, 4, 1, 60) };
-    case 'sound': return { kind: 'sound', file: str(a.file, 500), volume: num(a.volume, 80, 0, 100) };
+    case 'sound': return { kind: 'sound', file: str(a.file, 500), volume: num(a.volume, 80, 0, 100), seconds: num(a.seconds, 0, 0, 600) };
     case 'wait': return { kind: 'wait', ms: num(a.ms, 500, 0, 60000) };
   }
   return null;
@@ -257,11 +257,12 @@ async function runAction(a, ev) {
         event: ev.type, user: ev.user?.uniqueId || '', nickname: ev.user?.nickname || '',
         gift: ev.gift?.name || '', count: ev.gift?.count || 1, coins: ev.gift?.diamonds || 0, comment: ev.comment || '',
       });
+      showPopup(a, ev);
       if (!mods.size) log(`Game action "${a.action}" sent, but the game isn't connected. Launch it from BlumMods and wait for the green "connected" line.`, 'warn');
       break;
     }
     case 'sound':
-      if (a.file && /\.(mp3|wav|ogg|m4a)$/i.test(a.file) && fs.existsSync(a.file)) send('play-sound', { url: pathToFileURL(a.file).href, volume: (Number(a.volume) || 0) / 100 });
+      if (a.file && /\.(mp3|wav|ogg|m4a)$/i.test(a.file) && fs.existsSync(a.file)) send('play-sound', { url: pathToFileURL(a.file).href, volume: (Number(a.volume) || 0) / 100, seconds: Number(a.seconds) || 0 });
       break;
     case 'alert': {
       const alert = { text: fillTemplate(a.text || '{nickname}', ev), color: a.color || '#25f4ee', seconds: Number(a.seconds) || 4 };
@@ -292,6 +293,29 @@ function enqueue(name, actions, ev) {
   send('queue', queue.length);
   pump();
 }
+// ---------- drop-down popups: "-$25,000 CASH" with the viewer's name, drawn here and shown at the top of the game ----------
+const popupNumber = (n) => { const v = Number(n) || 0; return Math.abs(v) >= 1e6 ? (v / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 }) + 'M' : v.toLocaleString('en-US', { maximumFractionDigits: 2 }); };
+function popupFor(a) {
+  const g = data.games.find((x) => x.id === data.activeGameId);
+  const act = g && modloader.pluginFor(g, pluginManifest)?.actions?.find((x) => x.id === a.action);
+  if (!act?.popup) return null;
+  const params = a.params || {};
+  const def = Object.fromEntries((act.params || []).map((p) => [p.id, p.default]));
+  const text = act.popup.text.replace(/\{(\w+)\}/g, (_, k) => popupNumber(params[k] ?? def[k] ?? 0));
+  const tone = act.popup.tone === 'multiplier' ? (Number(params.multiplier ?? def.multiplier) < 1 ? 'bad' : 'good') : act.popup.tone;
+  return { text, tone, icon: act.icon || '' };
+}
+async function showPopup(a, ev) {
+  try {
+    if (!mods.size || !win || win.isDestroyed()) return;
+    const p = popupFor(a);
+    if (!p) return;
+    p.name = ev.user?.nickname || ev.user?.uniqueId || 'Someone';
+    const url = await win.webContents.executeJavaScript(`window.drawPopup(${JSON.stringify(p)})`, true);
+    if (typeof url === 'string') broadcast(modWss, { type: 'popup', png: url.replace(/^data:image\/png;base64,/, '') });
+  } catch (e) { log('Popup could not be drawn: ' + e.message, 'warn'); }
+}
+
 // ---------- reset timer (see resettimer.js) ----------
 const giftPictures = new Map(); // gift image url -> data: url, so the box can be drawn (a canvas can't export a picture from TikTok's site)
 async function giftPicture(url) {
@@ -480,6 +504,7 @@ function cleanManifest(m) {
     id: str(g.id, 60), name: str(g.name, 120), exe: (Array.isArray(g.exe) ? g.exe : []).slice(0, 10).map((e) => str(e, 120)), file: g.file, version: str(g.version, 20).replace(/[^\w.-]/g, ''), sha256: g.sha256.toLowerCase(),
     actions: (Array.isArray(g.actions) ? g.actions : []).slice(0, 300).filter((a) => a && /^[\w.-]{1,60}$/.test(a.id || '')).map((a) => ({
       id: a.id, label: str(a.label, 80) || a.id, category: str(a.category, 40), icon: str(a.icon, 8), desc: str(a.desc, 400),
+      popup: a.popup && typeof a.popup.text === 'string' ? { text: str(a.popup.text, 80), tone: ['good', 'bad', 'multiplier'].includes(a.popup.tone) ? a.popup.tone : 'good' } : null,
       params: (Array.isArray(a.params) ? a.params : []).slice(0, 12).filter((p) => p && /^\w{1,40}$/.test(p.id || '')).map((p) => ({ id: p.id, name: str(p.name, 40), label: str(p.label, 40), default: num(p.default, 0, -1e15, 1e15), min: num(p.min, 0, -1e15, 1e15), max: num(p.max, 1e15, -1e15, 1e15), step: num(p.step, 1, 0.0001, 1e12) })),
     })),
   }));

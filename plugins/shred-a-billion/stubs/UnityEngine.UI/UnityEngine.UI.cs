@@ -10,6 +10,7 @@ namespace UnityEngine.UI
     {
         public Graphic(IntPtr pointer) : base(pointer) { }
         public bool raycastTarget { set => throw null; }
+        public Color color { set => throw null; }
     }
     public class MaskableGraphic : Graphic { public MaskableGraphic(IntPtr pointer) : base(pointer) { } }
     public class RawImage : MaskableGraphic

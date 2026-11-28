@@ -62,6 +62,25 @@ namespace BlumMods.ShredABillion
 
         internal static void ResetToNew() => AccessTools.Method(_type, "ResetToNew").Invoke(Instance, null);
 
+        // Plays the game's own ending (Game.Finale.FinaleDirector.Begin()). Returns null if it started, else why not.
+        internal static string PlayEnding()
+        {
+            try
+            {
+                try { Assembly.Load("Game.Finale"); } catch { }
+                var t = AccessTools.TypeByName("Game.Finale.FinaleDirector");
+                if (t == null) return "FinaleDirector not found";
+                var inst = AccessTools.PropertyGetter(t, "Instance")?.Invoke(null, null);
+                if (inst == null) return "no ending in this scene";
+                if (Convert.ToBoolean(AccessTools.PropertyGetter(t, "Active")?.Invoke(inst, null) ?? false)) return "it is already playing";
+                var begin = t.GetMethods().FirstOrDefault(m => m.Name == "Begin" && m.GetParameters().Length == 0);
+                if (begin == null) return "Begin() not found";
+                begin.Invoke(inst, null);
+                return null;
+            }
+            catch (Exception e) { return (e.InnerException ?? e).GetType().Name + ": " + (e.InnerException ?? e).Message; }
+        }
+
         // Copies save.json / save.bak (and the Saves folder) into a dated BlumMods backup folder before any reset.
         internal static string BackupSave()
         {

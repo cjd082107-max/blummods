@@ -5,7 +5,7 @@
     "Megastore Tidy Up Together.exe"
   ],
   "file": "BlumMods.MegastoreTidyUp.dll",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "actions": [
     {
       "id": "jail",
@@ -23,7 +23,11 @@
           "max": 600,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "JAILED {seconds}s",
+        "tone": "bad"
+      }
     },
     {
       "id": "unjail",
@@ -31,7 +35,11 @@
       "category": "Player",
       "icon": "🔓",
       "desc": "Lets the streamer out of jail early. The cell disappears and they carry on where they are.",
-      "params": []
+      "params": [],
+      "popup": {
+        "text": "FREED!",
+        "tone": "good"
+      }
     },
     {
       "id": "speed_boost",
@@ -58,7 +66,11 @@
           "max": 600,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "{multiplier}x SPEED · {seconds}s",
+        "tone": "good"
+      }
     },
     {
       "id": "super_jump",
@@ -76,7 +88,11 @@
           "max": 600,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "SUPER JUMP · {seconds}s",
+        "tone": "good"
+      }
     },
     {
       "id": "magnet",
@@ -94,7 +110,11 @@
           "max": 120,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "MAGNET · {seconds}s",
+        "tone": "good"
+      }
     },
     {
       "id": "shelf_glow",
@@ -112,7 +132,11 @@
           "max": 120,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "SHELF GLOW · {seconds}s",
+        "tone": "good"
+      }
     },
     {
       "id": "give_xp",
@@ -130,7 +154,11 @@
           "max": 100000,
           "step": 10
         }
-      ]
+      ],
+      "popup": {
+        "text": "+{amount} XP",
+        "tone": "good"
+      }
     },
     {
       "id": "freeze",
@@ -148,7 +176,11 @@
           "max": 120,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "FROZEN {seconds}s",
+        "tone": "bad"
+      }
     },
     {
       "id": "slow_walk",
@@ -166,7 +198,11 @@
           "max": 600,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "SLOW WALK · {seconds}s",
+        "tone": "bad"
+      }
     },
     {
       "id": "product_explosion",
@@ -184,7 +220,11 @@
           "max": 5,
           "step": 0.1
         }
-      ]
+      ],
+      "popup": {
+        "text": "EXPLOSION!",
+        "tone": "bad"
+      }
     },
     {
       "id": "lights_out",
@@ -202,7 +242,11 @@
           "max": 300,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "LIGHTS OUT · {seconds}s",
+        "tone": "bad"
+      }
     },
     {
       "id": "launch",
@@ -220,7 +264,11 @@
           "max": 5,
           "step": 0.1
         }
-      ]
+      ],
+      "popup": {
+        "text": "LAUNCHED!",
+        "tone": "bad"
+      }
     },
     {
       "id": "moon_gravity",
@@ -238,7 +286,11 @@
           "max": 600,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "MOON GRAVITY · {seconds}s",
+        "tone": "bad"
+      }
     },
     {
       "id": "product_rain",
@@ -256,7 +308,11 @@
           "max": 150,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "+{count} PRODUCT RAIN",
+        "tone": "bad"
+      }
     },
     {
       "id": "drunk_camera",
@@ -274,7 +330,11 @@
           "max": 300,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "DIZZY · {seconds}s",
+        "tone": "bad"
+      }
     },
     {
       "id": "barrel_roll",
@@ -292,7 +352,11 @@
           "max": 10,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "BARREL ROLL x{rolls}",
+        "tone": "bad"
+      }
     },
     {
       "id": "tidy_items",
@@ -310,7 +374,11 @@
           "max": 1000000000000,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "+{amount} SORTED",
+        "tone": "good"
+      }
     },
     {
       "id": "mess_items",
@@ -328,7 +396,11 @@
           "max": 1000000000000,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "-{amount} SORTED",
+        "tone": "bad"
+      }
     },
     {
       "id": "insta_win",
@@ -336,7 +408,11 @@
       "category": "Helps",
       "icon": "🏆",
       "desc": "Sorts every loose item in the store onto its shelf.",
-      "params": []
+      "params": [],
+      "popup": {
+        "text": "INSTA WIN!",
+        "tone": "good"
+      }
     },
     {
       "id": "insta_reset",

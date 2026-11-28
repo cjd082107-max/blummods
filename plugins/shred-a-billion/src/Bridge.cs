@@ -99,6 +99,7 @@ namespace BlumMods.ShredABillion
                                     try
                                     {
                                         if (json.StartsWith("{\"type\":\"resetbox\"", StringComparison.Ordinal)) ResetBox.Receive(json);
+                                        else if (json.StartsWith("{\"type\":\"popup\"", StringComparison.Ordinal)) Popups.Receive(json);
                                         else if (json.Contains("\"command\"")) Incoming.Enqueue(new Command(json));
                                     }
                                     catch (Exception e) { Plugin.L.LogWarning("Skipped a message from the app: " + e.Message); }

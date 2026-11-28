@@ -1,1 +1,1 @@
-If Steam was opened by a game (which stops mods from loading), Launch now tells you right away to restart Steam instead of starting the game without its mod.
+Drop-down popups in the game: gift events now show the amount big (like -$25,000 CASH) with the viewer's name under it. Sounds can be cut off after N seconds. SHRED: insta reset now starts a brand-new save and insta win plays the ending.

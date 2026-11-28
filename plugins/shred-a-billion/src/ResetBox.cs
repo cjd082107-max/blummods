@@ -11,7 +11,7 @@ namespace BlumMods.ShredABillion
         static readonly object Lock = new object();
         static byte[] _next;
         static bool _hide;
-        static GameObject _root;
+        static GameObject _root, _box;
         static RawImage _image;
         static RectTransform _rect;
         static Texture2D _tex;
@@ -43,14 +43,14 @@ namespace BlumMods.ShredABillion
             if (next == null && !hide) return;
             try
             {
-                if (hide && _root != null) _root.SetActive(false);
+                if (hide && _box != null) _box.SetActive(false);
                 if (next == null) return;
                 Ensure();
                 if (!ImageConversion.LoadImage(_tex, next)) return;
                 _image.texture = _tex;
                 var h = Screen.height * 0.55f;
                 _rect.sizeDelta = V2(h, h); // the app draws a square box
-                _root.SetActive(true);
+                _box.SetActive(true);
             }
             catch (Exception e)
             {
@@ -58,15 +58,24 @@ namespace BlumMods.ShredABillion
             }
         }
 
-        static void Ensure()
+        // One top-most screen canvas holds the reset box and the drop-down popups.
+        internal static GameObject Root()
         {
-            if (_root != null && _image != null) return;
-            _root = new GameObject("BlumMods Reset Box");
+            if (_root != null) return _root;
+            _root = new GameObject("BlumMods Overlay");
             UnityEngine.Object.DontDestroyOnLoad(_root);
             var canvas = _root.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 32000; // above the game's own UI
+            return _root;
+        }
+
+        static void Ensure()
+        {
+            if (_box != null && _image != null) return;
+            Root();
             var box = new GameObject("Box");
+            _box = box;
             box.transform.SetParent(_root.transform, false);
             _image = box.AddComponent<RawImage>();
             _image.raycastTarget = false; // never blocks his clicks
@@ -77,6 +86,6 @@ namespace BlumMods.ShredABillion
             _tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         }
 
-        static Vector2 V2(float x, float y) { var v = default(Vector2); v.x = x; v.y = y; return v; }
+        internal static Vector2 V2(float x, float y) { var v = default(Vector2); v.x = x; v.y = y; return v; }
     }
 }

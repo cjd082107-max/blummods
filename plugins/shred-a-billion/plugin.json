@@ -5,7 +5,7 @@
     "ShredABillion.exe"
   ],
   "file": "BlumMods.ShredABillion.dll",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "actions": [
     {
       "id": "jail",
@@ -22,7 +22,11 @@
       ],
       "category": "Player",
       "icon": "🔒",
-      "desc": "Drops a solid cage around the streamer right where they stand. They can see the money through the bars and walk into them, but their tools stop working and they earn nothing until the time is up. More jail gifts add more time."
+      "desc": "Drops a solid cage around the streamer right where they stand. They can see the money through the bars and walk into them, but their tools stop working and they earn nothing until the time is up. More jail gifts add more time.",
+      "popup": {
+        "text": "JAILED {seconds}s",
+        "tone": "bad"
+      }
     },
     {
       "id": "unjail",
@@ -30,7 +34,11 @@
       "params": [],
       "category": "Player",
       "icon": "🔓",
-      "desc": "Lets the streamer out of jail early. The cage disappears and they carry on where they are."
+      "desc": "Lets the streamer out of jail early. The cage disappears and they carry on where they are.",
+      "popup": {
+        "text": "FREED!",
+        "tone": "good"
+      }
     },
     {
       "id": "add_money",
@@ -48,7 +56,11 @@
       ],
       "category": "Money",
       "icon": "💵",
-      "desc": "Pays the streamer this many dollars straight into their balance."
+      "desc": "Pays the streamer this many dollars straight into their balance.",
+      "popup": {
+        "text": "+${amount} CASH",
+        "tone": "good"
+      }
     },
     {
       "id": "remove_money",
@@ -66,7 +78,11 @@
       ],
       "category": "Money",
       "icon": "💸",
-      "desc": "Takes this many dollars out of the streamer's balance. It stops at zero."
+      "desc": "Takes this many dollars out of the streamer's balance. It stops at zero.",
+      "popup": {
+        "text": "-${amount} CASH",
+        "tone": "bad"
+      }
     },
     {
       "id": "money_multiplier",
@@ -92,7 +108,11 @@
       ],
       "category": "Money",
       "icon": "✖️",
-      "desc": "Multiplies everything the streamer earns for a while. 2 doubles it, 0.05 leaves them with almost nothing."
+      "desc": "Multiplies everything the streamer earns for a while. 2 doubles it, 0.05 leaves them with almost nothing.",
+      "popup": {
+        "text": "{multiplier}x CASH · {seconds}s",
+        "tone": "multiplier"
+      }
     },
     {
       "id": "launch",
@@ -110,7 +130,11 @@
       ],
       "category": "Player",
       "icon": "🚀",
-      "desc": "Throws the streamer into the air using the game's own launch effect. Needs the game's stream mode running."
+      "desc": "Throws the streamer into the air using the game's own launch effect. Needs the game's stream mode running.",
+      "popup": {
+        "text": "LAUNCHED!",
+        "tone": "bad"
+      }
     },
     {
       "id": "remove_bills",
@@ -128,7 +152,11 @@
           "max": 1000000000000,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "-{amount} BILLS",
+        "tone": "good"
+      }
     },
     {
       "id": "add_bills",
@@ -146,22 +174,30 @@
           "max": 1000000000000,
           "step": 1
         }
-      ]
+      ],
+      "popup": {
+        "text": "+{amount} BILLS",
+        "tone": "bad"
+      }
     },
     {
       "id": "insta_win",
       "label": "Insta win",
       "category": "Helps",
       "icon": "🏆",
-      "desc": "Clears every bill left in the pile at once.",
-      "params": []
+      "desc": "Clears every bill left in the pile and plays the game's ending, like a won run.",
+      "params": [],
+      "popup": {
+        "text": "INSTA WIN!",
+        "tone": "good"
+      }
     },
     {
       "id": "insta_reset",
       "label": "Insta reset",
       "category": "Hurts",
       "icon": "🔁",
-      "desc": "Instantly starts the run over, using the game's own full reset. The save is backed up first.",
+      "desc": "Instantly wipes the progress back to a brand-new game: money and the pile. The old save is backed up first, just in case.",
       "params": []
     },
     {

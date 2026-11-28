@@ -9,6 +9,11 @@ namespace UnityEngine
     public struct Color { public float r; public float g; public float b; public float a; }
     public enum PrimitiveType { Sphere, Capsule, Cylinder, Cube, Plane, Quad }
     public struct Vector2 { public float x; public float y; }
+    public struct Mathf
+    {
+        public static float Clamp01(float value) => throw null;
+        public static float Lerp(float a, float b, float t) => throw null;
+    }
     public enum TextureFormat { RGBA32 = 4 }
     public static class Screen { public static int width => throw null; public static int height => throw null; }
     public class Texture2D : Texture
