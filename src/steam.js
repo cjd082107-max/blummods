@@ -7,7 +7,7 @@ const { execFile } = require('child_process');
 
 // The Steam app id for a game .exe inside <library>\steamapps\common\<folder>\..., or '' if it isn't a Steam game.
 function steamAppId(exe, { readdir = fs.readdirSync, readFile = (f) => fs.readFileSync(f, 'utf8') } = {}) {
-  const parts = path.resolve(String(exe || '')).split(/[\\/]/);
+  const parts = String(exe || '').split(/[\\/]/);
   const i = parts.findIndex((p, n) => p.toLowerCase() === 'common' && (parts[n - 1] || '').toLowerCase() === 'steamapps');
   if (i < 1 || !parts[i + 1]) return '';
   const steamapps = parts.slice(0, i).join(path.sep);
