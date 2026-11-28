@@ -5,7 +5,7 @@
     "ShredABillion.exe"
   ],
   "file": "BlumMods.ShredABillion.dll",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "actions": [
     {
       "id": "jail",
@@ -141,7 +141,7 @@
       "label": "Remove bills",
       "category": "Helps",
       "icon": "🧹",
-      "desc": "Takes this many bills out of the pile, so the streamer gets closer to clearing the billion. Set any amount: 10, 1,000,000 or more.",
+      "desc": "Takes bills from the main pile (wherever you are) and pays you for them at your shredder rate, as if you shredded them yourself. They count toward the billion.",
       "params": [
         {
           "id": "amount",

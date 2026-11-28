@@ -28,30 +28,100 @@ namespace BlumMods.ShredABillion
                 Plugin.L.LogInfo("Hooked MoneyPile.BillsRemaining");
             }
             catch (Exception e) { Plugin.L.LogError("Could not hook the money pile: " + e); }
+            // The shredder service, so removed bills can be paid out like real shredding.
+            try
+            {
+                try { Assembly.Load("Game.Machines"); } catch { }
+                _depositType = AccessTools.TypeByName("Game.Machines.DepositService");
+                foreach (var m in new[] { AccessTools.Method(_depositType, "Awake"), AccessTools.PropertyGetter(_depositType, "QueuedNotes") })
+                    if (m != null) harmony.Patch(m, postfix: new HarmonyMethod(typeof(Pile), nameof(CaptureDeposit)));
+                Plugin.L.LogInfo("Hooked DepositService");
+            }
+            catch (Exception e) { Plugin.L.LogError("Could not hook the shredder service (removed bills won't pay): " + e); }
         }
 
         static void Capture(object __instance) { Instance = __instance; }
+        static void CaptureDeposit(object __instance) { Deposit = __instance; }
+        internal static object Deposit;
+        static Type _depositType;
 
         internal static bool Ready => Instance != null;
         internal static long Remaining => Ready ? Convert.ToInt64(AccessTools.PropertyGetter(_type, "BillsRemaining").Invoke(Instance, null)) : -1;
 
-        // Takes up to `notes` bills out of the pile anywhere in the vault. Returns how many went.
-        internal static long Remove(UnityEngine.Vector3 near, long notes)
+        // Takes up to `notes` bills from the main pile, wherever the streamer is (Carter, 2026-11-27).
+        // The game caps one grab's radius (MoneyPile.TakeRadiusMax), so grabs start at the pile's centre
+        // (MoneyPile._heap.Center) and spiral outwards until enough bills are taken or the vault is searched.
+        // When pay is true, the taken bills go through the game's own shredder (DepositService.ShredNow),
+        // so they pay exactly what shredding them would with his upgrades, and count toward the billion.
+        // Returns how many bills went; paid tells whether they were paid out.
+        internal static long Remove(UnityEngine.Vector3 near, long notes, bool pay, out bool paid)
         {
+            paid = false;
             var take = _type.GetMethods().FirstOrDefault(m => m.Name == "Take" && m.GetParameters().Length == 4);
             if (take == null) throw new MissingMethodException("MoneyPile", "Take");
             var output = Activator.CreateInstance(take.GetParameters()[3].ParameterType);
-            long total = 0;
-            // In chunks, so one huge gift can't stall a frame for too long.
-            for (int i = 0; i < 40 && total < notes; i++)
+            var clear = AccessTools.Method(output.GetType(), "Clear");
+
+            float cx = near.x, cz = near.z, spread = 40f;
+            try
             {
-                var got = Convert.ToInt64(take.Invoke(Instance, new object[] { near, 2000f, notes - total, output }));
-                AccessTools.Method(output.GetType(), "Clear")?.Invoke(output, null);
-                if (got <= 0) break;
-                total += got;
+                var heap = AccessTools.PropertyGetter(_type, "_heap")?.Invoke(Instance, null);
+                if (heap != null)
+                {
+                    var c = (UnityEngine.Vector2)AccessTools.PropertyGetter(heap.GetType(), "Center").Invoke(heap, null);
+                    cx = c.x; cz = c.y;
+                    spread = Math.Max(spread, Convert.ToSingle(AccessTools.PropertyGetter(heap.GetType(), "Radius").Invoke(heap, null)) + 10f);
+                }
+            }
+            catch (Exception e) { Plugin.L.LogWarning("Pile centre not found, taking around the streamer: " + e.Message); }
+            float reach = 3f;
+            try { reach = Math.Max(1f, Convert.ToSingle(AccessTools.PropertyGetter(_type, "TakeRadiusMax")?.Invoke(null, null) ?? 3f)); } catch { }
+
+            // Tally the taken bills by tier for the shredder.
+            object tally = null; MethodInfo addSamples = null;
+            if (pay && Deposit != null)
+            {
+                var shredNow = AccessTools.Method(_depositType, "ShredNow");
+                var tallyType = shredNow?.GetParameters()[0].ParameterType.GetElementType();
+                if (tallyType != null) { tally = Activator.CreateInstance(tallyType); addSamples = AccessTools.Method(tallyType, "AddSamples"); }
+            }
+
+            long total = 0;
+            var step = reach * 1.6f;
+            for (int ring = 0; total < notes && ring * step <= spread; ring++)
+            {
+                var spots = ring == 0 ? 1 : (int)Math.Ceiling(2 * Math.PI * ring * step / step);
+                for (int k = 0; k < spots && total < notes; k++)
+                {
+                    var a = 2 * Math.PI * k / spots;
+                    var at = V(cx + (float)(Math.Cos(a) * ring * step), near.y, cz + (float)(Math.Sin(a) * ring * step));
+                    for (int i = 0; i < 20 && total < notes; i++) // the same spot again until it is empty
+                    {
+                        var got = Convert.ToInt64(take.Invoke(Instance, new object[] { at, reach, notes - total, output }));
+                        if (got > 0 && addSamples != null) { var args = new object[] { output, 0 }; addSamples.Invoke(tally, args); }
+                        clear?.Invoke(output, null);
+                        if (got <= 0) break;
+                        total += got;
+                    }
+                }
+            }
+
+            if (total > 0 && tally != null)
+            {
+                try
+                {
+                    var shredNow = AccessTools.Method(_depositType, "ShredNow");
+                    var ps = shredNow.GetParameters();
+                    var intake = AccessTools.PropertyGetter(_depositType, "ShredderIntake")?.Invoke(Deposit, null) ?? near;
+                    shredNow.Invoke(Deposit, new object[] { tally, intake, Enum.ToObject(ps[2].ParameterType, 0) }); // IncomeSource.Hand: paid like his own shredding
+                    paid = true;
+                }
+                catch (Exception e) { Plugin.Say("Removed bills couldn't be paid out: " + (e.InnerException ?? e).Message); }
             }
             return total;
         }
+
+        static UnityEngine.Vector3 V(float x, float y, float z) { var v = default(UnityEngine.Vector3); v.x = x; v.y = y; v.z = z; return v; }
 
         internal static void Add(UnityEngine.Vector3 at, long notes)
         {

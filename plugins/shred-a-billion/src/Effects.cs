@@ -113,8 +113,8 @@ namespace BlumMods.ShredABillion
                 {
                     var n = (long)Clamp(c.Num("amount", 1000), 1, 1e12);
                     if (!Pile.Ready) { Plugin.Say("The bill pile isn't loaded yet. Start a run first."); break; }
-                    var gone = Pile.Remove(player.Position, n);
-                    Plugin.Say("Removed " + gone.ToString("N0") + " bills from the pile" + who + " · " + Pile.Remaining.ToString("N0") + " left");
+                    var gone = Pile.Remove(player.Position, n, true, out var paid);
+                    Plugin.Say("Removed " + gone.ToString("N0") + " bills from the pile" + who + (paid ? ", paid out at your shredder rate" : "") + " · " + Pile.Remaining.ToString("N0") + " left");
                     break;
                 }
                 case "add_bills":
@@ -131,7 +131,7 @@ namespace BlumMods.ShredABillion
                     if (!Pile.Ready) { Plugin.Say("The bill pile isn't loaded yet. Start a run first."); break; }
                     // Emptying the pile alone isn't the win: the game's ending (FinaleDirector) is what a won run plays.
                     var left = Pile.Remaining;
-                    var gone = Pile.Remove(player.Position, Math.Max(1, left));
+                    var gone = Pile.Remove(player.Position, Math.Max(1, left), false, out _);
                     var ending = Pile.PlayEnding();
                     Plugin.Say("INSTA WIN" + who + ": cleared " + gone.ToString("N0") + " bills" + (ending == null ? ", playing the ending" : ". The ending didn't start: " + ending));
                     break;
