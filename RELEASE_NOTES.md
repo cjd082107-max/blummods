@@ -1,1 +1,1 @@
-Steam games now launch through Steam, so their mods always load (launching the .exe made the game restart through Steam without its mod). If a game is already running, BlumMods won't start a second copy.
+If Steam was opened by a game (which stops mods from loading), Launch now tells you right away to restart Steam instead of starting the game without its mod.

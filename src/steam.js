@@ -33,4 +33,13 @@ function isRunning(exe) {
     done(!err && String(out).toLowerCase().includes(`"${name.toLowerCase()}"`))));
 }
 
-module.exports = { steamAppId, isRunning };
+// True when the running Steam was opened by a game restarting itself (its command line is "steam.exe steam://run/<id>").
+// Such a Steam carries the mod loader's settings and starts every game without mods until it is restarted.
+function steamOpenedByGame() {
+  if (process.platform !== 'win32') return Promise.resolve(false);
+  const ps = "(Get-CimInstance Win32_Process -Filter \"Name='steam.exe'\" | Select-Object -ExpandProperty CommandLine) -join \"`n\"";
+  return new Promise((done) => execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true, timeout: 8000 }, (err, out) =>
+    done(!err && /steam:\/\/run\//i.test(String(out)))));
+}
+
+module.exports = { steamAppId, isRunning, steamOpenedByGame };

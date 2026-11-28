@@ -12,7 +12,7 @@ const { toTikFinity } = require('./feed');
 const modloader = require('./modloader');
 const autoadd = require('./autoadd');
 const { ResetTimer } = require('./resettimer');
-const { steamAppId, isRunning } = require('./steam');
+const { steamAppId, isRunning, steamOpenedByGame } = require('./steam');
 
 app.setName('BlumMods');
 if (process.platform === 'win32') app.setAppUserModelId('com.blummods.app');
@@ -688,6 +688,11 @@ function wireIpc() {
     }
     if (/\.(lnk|url)$/i.test(g.exe)) { const err = await shell.openPath(g.exe); if (err) log(err, 'bad'); }
     else if (appId) {
+      if (modloader.pluginFor(g, pluginManifest) && await steamOpenedByGame()) {
+        log(`Steam was opened by a game, so ${g.name} would start WITHOUT its mod. Fix: right-click the Steam icon in the tray → Exit, open Steam again, then press Launch again.`, 'bad');
+        send('alert', { text: 'Restart Steam first: tray icon → Exit, then open Steam and Launch again', color: '#ff4d6a', seconds: 10 });
+        return false;
+      }
       // Through Steam, so the game never has to restart itself (see steam.js for why that breaks mods).
       const url = g.launchArgs ? `steam://run/${appId}//${encodeURIComponent(g.launchArgs)}/` : `steam://rungameid/${appId}`;
       try { await shell.openExternal(url); } catch (e) { log(`Couldn't ask Steam to start ${g.name}: ${e.message}`, 'bad'); return false; }
