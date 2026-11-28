@@ -1,1 +1,1 @@
-Fixes triggers reading TikTok wrong: likes now count every tap (100 likes = 100), gift triggers match the gift name again, Rose streaks fire once per Rose, follow spam counts once per person, and chat commands work.
+Launch now checks for new game-mod versions first, so mod updates install without restarting BlumMods.

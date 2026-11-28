@@ -698,6 +698,7 @@ function wireIpc() {
     if (!g) return false;
     if (!fs.existsSync(g.exe) || !fs.statSync(g.exe).isFile()) { log(`Can't find ${g.name} at ${g.exe}. Edit the game and pick its file again.`, 'bad'); return false; }
     data.activeGameId = id; save();
+    await refreshManifest(); // pick up mod updates published since BlumMods started (it used to need an app restart)
     await syncPlugins();
     const appId = /\.exe$/i.test(g.exe) ? steamAppId(g.exe) : '';
     if (/\.exe$/i.test(g.exe) && await isRunning(g.exe)) {
